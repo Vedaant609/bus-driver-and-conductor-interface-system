@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TransitPro - Bus Management System</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i data-lucide="bus"></i>
+                <span>TransitPro</span>
+            </div>
+            <div class="user-info" id="user-info" style="display: none;">
+                <span id="user-role-badge" class="badge">Role</span>
+                <button id="logout-btn" class="btn btn-icon"><i data-lucide="log-out"></i></button>
+            </div>
+            <button id="theme-toggle" class="btn btn-icon">
+                <i data-lucide="moon"></i>
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Login View -->
+            <section id="view-login" class="view active">
+                <div class="login-card">
+                    <div class="login-header">
+                        <h2>Welcome Back</h2>
+                        <p>Enter your credentials to continue</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="username">User ID</label>
+                        <input type="text" id="username" placeholder="e.g. admin, c1, d1">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter password">
+                    </div>
+
+                    <button id="login-submit" class="btn btn-primary full-width">Login</button>
+                </div>
+            </section>
+
+            <!-- Admin View -->
+            <section id="view-admin" class="view">
+                <div class="dashboard-header">
+                    <h2>Admin Dashboard</h2>
+                </div>
+                
+                <div class="stats-grid" id="admin-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="indian-rupee"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Revenue</h3>
+                            <p id="total-revenue">₹0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i data-lucide="ticket"></i></div>
+                        <div class="stat-info">
+                            <h3>Tickets Issued</h3>
+                            <p id="total-tickets">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="total-staff-card" style="cursor: pointer; transition: transform 0.2s;" title="Click to view All Staff Directory">
+                        <div class="stat-icon"><i data-lucide="users"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Staff</h3>
+                            <p id="total-staff">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card analytics-card" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3><i data-lucide="bar-chart-2"></i> Daily Analytics</h3>
+                        <input type="date" id="analytics-date" class="input-group" style="margin-bottom: 0; padding: 0.5rem; width: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-page); color: var(--text-primary); outline: none;">
+                    </div>
+                    <div class="stop-list" id="analytics-list">
+                        <!-- populated via JS -->
+                        <div class="text-muted" style="padding: 1rem;">Select a date to view analytics</div>
+                    </div>
+                </div>
+                <div id="live-operations-panel" class="card hidden" style="margin-bottom: 2rem; border-left: 4px solid var(--green-success);">
+                    <h3><i data-lucide="activity"></i> Live Operations</h3>
+                    <div class="stop-list" id="operations-list">
+                        <div class="text-muted" style="padding: 1rem;">Loading active operations...</div>
+                    </div>
+                </div>
+
+                <div id="all-staff-panel" class="card hidden" style="margin-bottom: 2rem; border-left: 4px solid var(--purple-primary);">
+                    <h3><i data-lucide="book-open"></i> All Staff Directory</h3>
+                    <div class="stop-list" id="all-staff-list">
+                        <div class="text-muted" style="padding: 1rem;">Loading staff directory...</div>
+                    </div>
+                </div>
+
+                <div class="admin-actions">
+                    <div class="card">
+                        <h3><i data-lucide="user-plus"></i> Add Staff</h3>
+                        <div class="input-group">
+                            <input type="text" id="new-staff-name" placeholder="Full Name">
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="new-staff-username" placeholder="Login User ID (Unique)">
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="new-staff-password" placeholder="Login Password">
+                        </div>
+                        <div class="input-group">
+                            <select id="new-staff-role">
+                                <option value="Conductor">Conductor</option>
+                                <option value="Driver">Driver</option>
+                            </select>
+                        </div>
+                        <button id="add-staff-btn" class="btn btn-secondary full-width">Add Staff</button>
+                    </div>
+
+                    <div class="card">
+                        <h3><i data-lucide="map"></i> Add Route</h3>
+                        <p class="text-muted" style="margin-bottom: 1.5rem;">Launch the builder to create dynamic routes with custom stops.</p>
+                        <button id="open-route-modal-btn" class="btn btn-secondary full-width">
+                            <i data-lucide="map-pin"></i> Open Route Builder
+                        </button>
+                    </div>
+                    
+                    <div class="card special-card">
+                        <h3><i data-lucide="calendar"></i> Assign Bus</h3>
+                        <div class="input-group">
+                            <label>Date</label>
+                            <input type="date" id="assign-date">
+                        </div>
+                        <div class="input-group">
+                            <label>Route</label>
+                            <select id="assign-route">
+                                <option value="">Select Route</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Driver</label>
+                            <select id="assign-driver">
+                                <option value="">Select Driver</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Conductor</label>
+                            <select id="assign-conductor">
+                                <option value="">Select Conductor</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Bus ID</label>
+                            <input type="text" id="assign-bus-id" placeholder="Bus ID (e.g. BUS-01)">
+                        </div>
+                        <button id="assign-btn" class="btn btn-primary full-width">Lock Assignment</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Conductor View -->
+            <section id="view-conductor" class="view">
+                <div class="dashboard-header">
+                    <h2>Conductor Dashboard</h2>
+                    <span class="bus-badge" id="conductor-bus"></span>
+                </div>
+                
+                <div class="conductor-layout">
+                    <div class="panel ticket-panel">
+                        <h3>Ticket Operations</h3>
+                        <div class="ticket-form" style="margin-bottom: 1.5rem;">
+                            <div class="input-group">
+                                <label>Passenger Name</label>
+                                <input type="text" id="ticket-passenger" placeholder="E.g. John Doe">
+                            </div>
+                            <div class="input-group">
+                                <label>Pick Location</label>
+                                <select id="ticket-pick"><option>Loading...</option></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Drop Location</label>
+                                <select id="ticket-drop"><option>Loading...</option></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Fare (₹)</label>
+                                <input type="number" id="ticket-fare" placeholder="Manual Fare Amount">
+                            </div>
+                            <button id="issue-ticket-btn" class="btn btn-primary full-width">
+                                <i data-lucide="ticket"></i> Book Ticket
+                            </button>
+                        </div>
+                        <div class="revenue-summary">
+                            <p>Current Bus Revenue: <strong id="conductor-revenue">₹0</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="panel route-panel">
+                        <h3>Route Progress</h3>
+                        <div class="stop-list" id="conductor-stops">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel passenger-panel" style="margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0;"><i data-lucide="users"></i> Active Passengers</h3>
+                        <span id="passenger-count" class="badge">0 / 20 Seats</span>
+                    </div>
+                    <div class="stop-list" id="active-passengers-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Driver View -->
+            <section id="view-driver" class="view">
+                <div class="dashboard-header">
+                    <h2>Driver View</h2>
+                    <span class="bus-badge" id="driver-bus"></span>
+                </div>
+
+                <div class="driver-layout">
+                    <div class="panel big-route-panel">
+                        <div class="driver-instructions">
+                            <p><i data-lucide="alert-circle"></i> Stops highlighted in <strong class="text-danger">Red</strong> have passengers alighting.</p>
+                        </div>
+                        <div class="stop-list driver-stop-list" id="driver-stops">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Route Builder Modal -->
+    <div class="modal-overlay" id="route-builder-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i data-lucide="map"></i> Route Builder</h3>
+                <button class="btn-icon" id="close-route-modal"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="input-group">
+                <label>Route Name</label>
+                <input type="text" id="builder-route-name" placeholder="e.g. Expressway Route">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: flex-end;">
+                <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                    <label>Stop Name</label>
+                    <input type="text" id="builder-stop-name" placeholder="e.g. Central Station">
+                </div>
+                <button class="btn btn-secondary" id="add-stop-btn"><i data-lucide="plus"></i> Add</button>
+            </div>
+
+            <div class="stop-list" id="builder-stops-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-page); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="text-muted" id="empty-stops-msg" style="padding: 1rem; text-align: center;">No stops added yet</div>
+            </div>
+
+            <button class="btn btn-primary full-width" id="save-route-btn">Save Route</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
