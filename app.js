@@ -1,4 +1,47 @@
 const API_URL = 'http://localhost:5000/api';
+const FARE_PER_KM = 2; // ₹2 per km
+
+// Distance map between consecutive stops (in km)
+// Key format: "FromStop|ToStop" => distance in km
+const DISTANCE_MAP = {
+    // Route Alpha (Station A route)
+    'Station A|Market Road': 6,
+    'Market Road|City Park': 7,
+    'City Park|Central Mall': 5,
+    'Central Mall|River Side': 8,
+    'River Side|Old Town': 6,
+    'Old Town|University': 9,
+    'University|Stadium': 7,
+    'Stadium|Bus Depot': 5,
+    'Bus Depot|Station A': 10,
+    // Route Beta (Station B route)
+    'Station B|Garden View': 6,
+    'Garden View|Library': 7,
+    'Library|Post Office': 5
+};
+
+// Build reverse map too (for bidirectional lookup)
+Object.keys(DISTANCE_MAP).forEach(key => {
+    const [a, b] = key.split('|');
+    DISTANCE_MAP[`${b}|${a}`] = DISTANCE_MAP[key];
+});
+
+/**
+ * Calculate total distance between two stops along the route.
+ * Uses the distance map for known consecutive pairs,
+ * falls back to a default of 5 km per segment for unknown pairs.
+ */
+function getRouteDistance(stops, fromIndex, toIndex) {
+    if (fromIndex >= toIndex) return 0;
+    let totalDistance = 0;
+    for (let i = fromIndex; i < toIndex; i++) {
+        const fromName = stops[i];
+        const toName = stops[i + 1];
+        const key = `${fromName}|${toName}`;
+        totalDistance += DISTANCE_MAP[key] || 5; // default 5km if not in map
+    }
+    return totalDistance;
+}
 
 // =============== STATE MANAGEMENT ===============
 let appState = {
@@ -286,6 +329,9 @@ function bindEvents() {
         appState.currentUser = null;
         saveUser();
         if (pollInterval) clearInterval(pollInterval);
+        lastDropdownStopsHash = '';
+        currentRouteStopNames = [];
+        previousStateHash = '';
         showView('login');
         showToast('Logged out', 'success');
     });
@@ -530,8 +576,56 @@ function populateAdminDropdowns() {
     }
 }
 
+// Cache the current stop names for fare calculation
+let currentRouteStopNames = [];
+let lastDropdownStopsHash = '';
+
+function calculateFare() {
+    if (!tPick || !tDrop || !tFare) return;
+    const pickVal = tPick.value;
+    const dropVal = tDrop.value;
+    if (pickVal === '' || dropVal === '') {
+        tFare.value = '';
+        return;
+    }
+    const pickIdx = parseInt(pickVal);
+    const dropIdx = parseInt(dropVal);
+    if (dropIdx > pickIdx && currentRouteStopNames.length > 0) {
+        const distance = getRouteDistance(currentRouteStopNames, pickIdx, dropIdx);
+        tFare.value = (distance * FARE_PER_KM).toFixed(2);
+    } else {
+        tFare.value = '';
+    }
+}
+
+function handlePickChange() {
+    const pIdx = parseInt(tPick.value);
+    Array.from(tDrop.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.disabled = parseInt(opt.value) <= pIdx;
+    });
+    // If current drop is now invalid, reset it
+    if (tDrop.value && parseInt(tDrop.value) <= pIdx) {
+        tDrop.value = '';
+    }
+    calculateFare();
+}
+
+function handleDropChange() {
+    calculateFare();
+}
+
 function populateTicketingDropdowns(stops) {
     if(!tPick || !tDrop) return;
+
+    // Build a hash of the current stops to avoid unnecessary DOM rebuilds
+    const stopsHash = stops.map(s => `${s.index}:${s.name}:${s.visited}`).join(',');
+    if (stopsHash === lastDropdownStopsHash) return; // No change, skip rebuild
+    lastDropdownStopsHash = stopsHash;
+
+    // Cache stop names for distance-based fare calculation
+    currentRouteStopNames = stops.map(s => s.name);
+
     const prevPick = tPick.value, prevDrop = tDrop.value;
 
     tPick.innerHTML = '<option value="">Select Boarding Point...</option>';
@@ -545,13 +639,20 @@ function populateTicketingDropdowns(stops) {
     if(prevPick) tPick.value = prevPick;
     if(prevDrop) tDrop.value = prevDrop;
 
-    tPick.addEventListener('change', () => {
+    // Disable drop options that are at or before the current pick
+    if (tPick.value) {
         const pIdx = parseInt(tPick.value);
         Array.from(tDrop.options).forEach(opt => {
-            if(!opt.value) return;
+            if (!opt.value) return;
             opt.disabled = parseInt(opt.value) <= pIdx;
         });
-    });
+    }
+
+    // Remove old listeners and rebind (safe for repeated calls)
+    tPick.removeEventListener('change', handlePickChange);
+    tDrop.removeEventListener('change', handleDropChange);
+    tPick.addEventListener('change', handlePickChange);
+    tDrop.addEventListener('change', handleDropChange);
 }
 
 function updateConductorView() {
