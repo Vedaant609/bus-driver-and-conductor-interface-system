@@ -67,12 +67,13 @@ def init_db():
         c.execute("INSERT INTO users (username, password, role, full_name) VALUES ('d2', '123', 'Driver', 'Vijay Dev')")
         
         default_stops_1 = [
-            {"name": "Central Station"}, {"name": "City Center"}, {"name": "Market Square"},
-            {"name": "University Campus"}, {"name": "Tech Park"}, {"name": "North Suburbs"}
+            {"name": "Station A"}, {"name": "Market Road"}, {"name": "City Park"},
+            {"name": "Central Mall"}, {"name": "River Side"}, {"name": "Old Town"},
+            {"name": "University"}, {"name": "Stadium"}, {"name": "Bus Depot"}
         ]
         default_stops_2 = [
-            {"name": "South Terminal"}, {"name": "Airport"}, 
-            {"name": "Business District"}, {"name": "West End"}
+            {"name": "Station B"}, {"name": "Garden View"}, 
+            {"name": "Library"}, {"name": "Post Office"}
         ]
         c.execute("INSERT INTO routes (name, stops_json) VALUES (?, ?)", ("Route Alpha", json.dumps(default_stops_1)))
         c.execute("INSERT INTO routes (name, stops_json) VALUES (?, ?)", ("Route Beta", json.dumps(default_stops_2)))
