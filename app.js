@@ -126,11 +126,20 @@ let tempRouteStops = [];
 const conductorBusId = document.getElementById('conductor-bus');
 const conductorRevenue = document.getElementById('conductor-revenue');
 const conductorStopsContainer = document.getElementById('conductor-stops');
+const conductorResetBtn = document.getElementById('conductor-reset-btn');
+
+const adminResetModal = document.getElementById('admin-reset-modal');
+const closeAdminResetModal = document.getElementById('close-admin-reset-modal');
+const confirmAdminResetBtn = document.getElementById('confirm-admin-reset-btn');
+const resetModalBusId = document.getElementById('reset-modal-bus-id');
+const resetModalRouteId = document.getElementById('reset-modal-route-id');
+let currentResetBusId = null;
 
 const tPassenger = document.getElementById('ticket-passenger');
 const tPick = document.getElementById('ticket-pick');
 const tDrop = document.getElementById('ticket-drop');
 const tFare = document.getElementById('ticket-fare');
+const tCount = document.getElementById('ticket-count');
 const issueTicketBtn = document.getElementById('issue-ticket-btn');
 const passCount = document.getElementById('passenger-count');
 const passList = document.getElementById('active-passengers-list');
@@ -148,14 +157,14 @@ function init() {
     const today = new Date().toISOString().split('T')[0];
     if (assignDate) assignDate.value = today;
     if (analyticsDate) analyticsDate.value = today;
-    
+
     if (appState.currentUser) {
         fetchData().then(() => {
             showView(appState.currentUser.role.toLowerCase());
             startPolling();
         });
     } else { showView('login'); }
-    
+
     bindEvents();
 }
 
@@ -163,7 +172,7 @@ let pollInterval;
 let previousStateHash = '';
 function startPolling() {
     if (pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(fetchData, 1500); 
+    pollInterval = setInterval(fetchData, 1500);
 }
 
 // =============== API CALLS ===============
@@ -178,27 +187,28 @@ async function fetchData() {
             appState.adminData.staffCount = data.total_staff;
             appState.adminData.routes = data.routes;
             updateAdminView();
-            fetchAnalytics(); 
-            
+            fetchAnalytics();
+
             if (appState.adminData.drivers.length === 0) fetchUsersForDropdowns();
+            else populateAdminDropdowns();
             if (!liveOpsPanel.classList.contains('hidden')) fetchActiveStaff();
             if (!allStaffPanel.classList.contains('hidden')) fetchAllStaff();
-            
+
         } else if (appState.currentUser.role === 'Conductor' || appState.currentUser.role === 'Driver') {
             const res = await fetch(`${API_URL}/sync?user_id=${appState.currentUser.id}&role=${appState.currentUser.role}`);
             const data = await res.json();
-            
+
             if (data.error) appState.busData = { bus_id: "Off Duty", route_name: "Not Assigned", revenue: 0, stops: [], active_passengers: [] };
             else appState.busData = data;
-            
+
             const currentHash = JSON.stringify(appState.busData);
-            if(currentHash !== previousStateHash) {
+            if (currentHash !== previousStateHash) {
                 previousStateHash = currentHash;
                 if (appState.currentUser.role === 'Conductor') updateConductorView();
                 if (appState.currentUser.role === 'Driver') updateDriverView();
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 async function fetchUsersForDropdowns() {
@@ -208,7 +218,7 @@ async function fetchUsersForDropdowns() {
         appState.adminData.drivers = udata.drivers;
         appState.adminData.conductors = udata.conductors;
         populateAdminDropdowns();
-    } catch(e) {}
+    } catch (e) { }
 }
 
 async function fetchAnalytics() {
@@ -216,9 +226,9 @@ async function fetchAnalytics() {
     try {
         const res = await fetch(`${API_URL}/admin/analytics?date=${analyticsDate.value}`);
         const data = await res.json();
-        
+
         analyticsList.innerHTML = '';
-        if(data.analytics.length === 0) {
+        if (data.analytics.length === 0) {
             analyticsList.innerHTML = '<div class="text-muted" style="padding: 1rem;">No data found.</div>';
             return;
         }
@@ -235,7 +245,7 @@ async function fetchAnalytics() {
             `;
             analyticsList.appendChild(el);
         });
-    } catch (e) {}
+    } catch (e) { }
 }
 
 async function fetchActiveStaff() {
@@ -243,25 +253,38 @@ async function fetchActiveStaff() {
         const res = await fetch(`${API_URL}/admin/active_staff`);
         const data = await res.json();
         opsList.innerHTML = '';
-        if(data.active_operations.length === 0) {
+        if (data.active_operations.length === 0) {
             opsList.innerHTML = '<div class="text-muted" style="padding: 1rem;">No active buses right now.</div>';
             return;
         }
         data.active_operations.forEach(op => {
+            const isComplete = op.is_complete;
+            const resetBtnHTML = isComplete ?
+                `<button class="btn btn-outline admin-reset-bus-btn" data-bus="${op.bus_id}" style="padding: 0.25rem 0.5rem; color: var(--yellow-primary); border-color: var(--yellow-primary); font-size: 0.8rem;">Reset</button>` : '';
+
             opsList.innerHTML += `
                 <div class="stop-item">
                     <div class="stop-info">
-                        <span class="stop-index" style="width: auto; border-radius: 8px; padding: 0 0.5rem; background: var(--yellow-primary); color: #000;">${op.bus_id}</span>
+                        <span class="stop-index" style="width: auto; border-radius: 8px; padding: 0 0.5rem; background: ${isComplete ? 'var(--green-success)' : 'var(--yellow-primary)'}; color: #000;">${op.bus_id}</span>
                         <div style="display:flex; flex-direction: column;">
                             <span class="stop-name">${op.route_name}</span>
                             <span class="text-muted" style="font-size: 0.9em;">Driver: ${op.driver || 'N/A'} | Cond: ${op.conductor || 'N/A'}</span>
                         </div>
                     </div>
-                    <i data-lucide="activity" style="color: var(--green-success);"></i>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <i data-lucide="${isComplete ? 'check-circle' : 'activity'}" style="color: var(--green-success);"></i>
+                        ${resetBtnHTML}
+                    </div>
                 </div>`;
         });
+        document.querySelectorAll('.admin-reset-bus-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const busId = e.currentTarget.dataset.bus;
+                openAdminResetModal(busId);
+            });
+        });
         lucide.createIcons();
-    } catch(e) {}
+    } catch (e) { }
 }
 
 async function fetchAllStaff() {
@@ -269,7 +292,7 @@ async function fetchAllStaff() {
         const res = await fetch(`${API_URL}/admin/all_staff`);
         const data = await res.json();
         allStaffList.innerHTML = '';
-        if(data.staff.length === 0) {
+        if (data.staff.length === 0) {
             allStaffList.innerHTML = '<div class="text-muted" style="padding: 1rem;">No staff found.</div>';
             return;
         }
@@ -288,7 +311,7 @@ async function fetchAllStaff() {
                 </div>`;
         });
         lucide.createIcons();
-    } catch(e) {}
+    } catch (e) { }
 }
 
 // =============== EVENT LISTENERS ===============
@@ -302,7 +325,7 @@ function bindEvents() {
     loginSubmitBtn.addEventListener('click', async () => {
         const username = loginUsernameInput.value.trim();
         const password = loginPasswordInput.value.trim();
-        if(!username || !password) { showToast('Enter both ID and Password', 'error'); return; }
+        if (!username || !password) { showToast('Enter both ID and Password', 'error'); return; }
 
         loginSubmitBtn.disabled = true;
         loginSubmitBtn.textContent = 'Logging in...';
@@ -312,7 +335,7 @@ function bindEvents() {
                 body: JSON.stringify({ username, password })
             });
             const data = await res.json();
-            if(data.success) {
+            if (data.success) {
                 appState.currentUser = data.user;
                 saveUser();
                 await fetchData();
@@ -321,7 +344,7 @@ function bindEvents() {
                 showView(appState.currentUser.role.toLowerCase());
                 startPolling();
             } else showToast(data.error, 'error');
-        } catch(e) { showToast('Connection failed', 'error'); } 
+        } catch (e) { showToast('Connection failed', 'error'); }
         finally { loginSubmitBtn.disabled = false; loginSubmitBtn.textContent = 'Login'; }
     });
 
@@ -337,29 +360,29 @@ function bindEvents() {
     });
 
     // Admin Events
-    if(analyticsDate) analyticsDate.addEventListener('change', fetchAnalytics);
+    if (analyticsDate) analyticsDate.addEventListener('change', fetchAnalytics);
 
-    if(activeStaffCard) activeStaffCard.addEventListener('click', () => {
+    if (activeStaffCard) activeStaffCard.addEventListener('click', () => {
         liveOpsPanel.classList.toggle('hidden');
-        if(!liveOpsPanel.classList.contains('hidden')) {
+        if (!liveOpsPanel.classList.contains('hidden')) {
             opsList.innerHTML = '<div class="text-muted" style="padding: 1rem;">Loading...</div>';
             fetchActiveStaff();
         }
     });
 
-    if(totalStaffCard) totalStaffCard.addEventListener('click', () => {
+    if (totalStaffCard) totalStaffCard.addEventListener('click', () => {
         allStaffPanel.classList.toggle('hidden');
-        if(!allStaffPanel.classList.contains('hidden')) {
+        if (!allStaffPanel.classList.contains('hidden')) {
             allStaffList.innerHTML = '<div class="text-muted" style="padding: 1rem;">Loading...</div>';
             fetchAllStaff();
         }
     });
 
-    if(assignBtn) assignBtn.addEventListener('click', async () => {
+    if (assignBtn) assignBtn.addEventListener('click', async () => {
         const d = assignDate.value, r_id = assignRoute.value, b_id = assignBusId.value.trim().toUpperCase();
         const c_id = assignConductor.value, d_id = assignDriver.value;
 
-        if(!d || !r_id || !b_id || !c_id || !d_id) { showToast('Fill all assignment fields completely', 'error'); return; }
+        if (!d || !r_id || !b_id || !c_id || !d_id) { showToast('Fill all assignment fields completely', 'error'); return; }
 
         try {
             const res = await fetch(`${API_URL}/admin/assign`, {
@@ -367,29 +390,29 @@ function bindEvents() {
                 body: JSON.stringify({ date: d, route_id: parseInt(r_id), bus_id: b_id, driver_id: parseInt(d_id), conductor_id: parseInt(c_id) })
             });
             const data = await res.json();
-            if(data.success) {
+            if (data.success) {
                 showToast(`Assignment Locked!`, 'success');
                 assignBusId.value = '';
                 fetchData();
             } else showToast(data.error, 'error');
-        } catch (e) {}
+        } catch (e) { }
     });
 
     // Admin Add Staff
-    if(addStaffBtn) addStaffBtn.addEventListener('click', async () => {
+    if (addStaffBtn) addStaffBtn.addEventListener('click', async () => {
         const fname = addStaffName.value.trim();
         const uname = addStaffUsername.value.trim();
         const pwd = addStaffPassword.value.trim();
         const role = addStaffRole.value;
 
-        if(!fname || !uname || !pwd || !role) { showToast('Fill all staff fields', 'error'); return; }
+        if (!fname || !uname || !pwd || !role) { showToast('Fill all staff fields', 'error'); return; }
         try {
             const res = await fetch(`${API_URL}/admin/staff`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ full_name: fname, username: uname, password: pwd, role: role })
             });
             const data = await res.json();
-            if(data.success) {
+            if (data.success) {
                 showToast(`Staff ${fname} Added!`, 'success');
                 addStaffName.value = '';
                 addStaffUsername.value = '';
@@ -397,11 +420,11 @@ function bindEvents() {
                 appState.adminData.drivers = []; // force reload dropdowns
                 fetchData();
             } else showToast(data.error, 'error');
-        } catch (e) {}
+        } catch (e) { }
     });
 
     // Route Builder Modal Toggle
-    if(openRouteModalBtn) {
+    if (openRouteModalBtn) {
         openRouteModalBtn.addEventListener('click', () => {
             tempRouteStops = [];
             builderRouteName.value = '';
@@ -410,18 +433,37 @@ function bindEvents() {
             routeModal.classList.add('active');
         });
     }
-    
-    if(closeRouteModalBtn) closeRouteModalBtn.addEventListener('click', () => routeModal.classList.remove('active'));
-    
-    if(routeModal) {
+
+    if (closeRouteModalBtn) closeRouteModalBtn.addEventListener('click', () => routeModal.classList.remove('active'));
+
+    if (closeAdminResetModal) closeAdminResetModal.addEventListener('click', () => adminResetModal.classList.remove('active'));
+    if (confirmAdminResetBtn) confirmAdminResetBtn.addEventListener('click', async () => {
+        if (!currentResetBusId) return;
+        const newRouteId = resetModalRouteId.value ? parseInt(resetModalRouteId.value) : null;
+        try {
+            const res = await fetch(`${API_URL}/admin/reset_bus`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bus_id: currentResetBusId, route_id: newRouteId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`Bus ${currentResetBusId} Reset!`, 'success');
+                adminResetModal.classList.remove('active');
+                if (!liveOpsPanel.classList.contains('hidden')) fetchActiveStaff();
+                fetchData();
+            } else showToast(data.error, 'error');
+        } catch (e) { }
+    });
+
+    if (routeModal) {
         routeModal.addEventListener('click', (e) => {
-            if(e.target === routeModal) routeModal.classList.remove('active');
+            if (e.target === routeModal) routeModal.classList.remove('active');
         });
     }
 
-    if(addStopBtn) addStopBtn.addEventListener('click', () => {
+    if (addStopBtn) addStopBtn.addEventListener('click', () => {
         const val = builderStopName.value.trim();
-        if(val) {
+        if (val) {
             tempRouteStops.push(val);
             renderBuilderStops();
             builderStopName.value = '';
@@ -429,17 +471,17 @@ function bindEvents() {
         }
     });
 
-    if(builderStopName) builderStopName.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter') {
+    if (builderStopName) builderStopName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
             e.preventDefault();
             addStopBtn.click();
         }
     });
 
-    if(saveRouteBtn) saveRouteBtn.addEventListener('click', async () => {
+    if (saveRouteBtn) saveRouteBtn.addEventListener('click', async () => {
         const rName = builderRouteName.value.trim();
-        if(!rName) { showToast('Enter a Route Name', 'error'); return; }
-        if(tempRouteStops.length < 2) { showToast('A route needs at least 2 stops', 'error'); return; }
+        if (!rName) { showToast('Enter a Route Name', 'error'); return; }
+        if (tempRouteStops.length < 2) { showToast('A route needs at least 2 stops', 'error'); return; }
 
         try {
             const res = await fetch(`${API_URL}/admin/route`, {
@@ -447,49 +489,67 @@ function bindEvents() {
                 body: JSON.stringify({ name: rName, stops: tempRouteStops })
             });
             const data = await res.json();
-            if(data.success) {
+            if (data.success) {
                 showToast('Route saved successfully!', 'success');
                 routeModal.classList.remove('active');
-                
+
                 // Clear and force reload routes in assignment dropdown
                 assignRoute.innerHTML = '<option value="">Select Route</option>';
-                appState.adminData.routes = []; 
+                appState.adminData.routes = [];
                 fetchData();
             } else showToast(data.error, 'error');
-        } catch (e) {}
+        } catch (e) { }
+    });
+
+    if (conductorResetBtn) conductorResetBtn.addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to reverse the route and start a new journey? This will complete all active tickets.")) return;
+        try {
+            const res = await fetch(`${API_URL}/action/reset_journey`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: appState.currentUser.id })
+            });
+            const data = await res.json();
+            if (data.success) { showToast('Route Reversed & Reset!', 'success'); fetchData(); }
+            else showToast(data.error, 'error');
+        } catch (e) { }
     });
 
     // Conductor Ticketing
-    if(issueTicketBtn) issueTicketBtn.addEventListener('click', async () => {
-        if(!tPassenger.value || !tPick.value || !tDrop.value || !tFare.value) { showToast('Please fill out all fields', 'error'); return; }
+    if (issueTicketBtn) issueTicketBtn.addEventListener('click', async () => {
+        if (!tPassenger.value || !tPick.value || !tDrop.value || !tFare.value) { showToast('Please fill out all fields', 'error'); return; }
         try {
+            const count = tCount ? (parseInt(tCount.value) || 1) : 1;
+            const singleFare = parseFloat(tFare.value) / count;
             const payload = {
                 user_id: appState.currentUser.id, passenger_name: tPassenger.value,
-                pick_stop_index: tPick.value, drop_stop_index: tDrop.value, fare: tFare.value
+                pick_stop_index: tPick.value, drop_stop_index: tDrop.value,
+                fare: singleFare, ticket_count: count
             };
             const res = await fetch(`${API_URL}/action/ticket`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
             const data = await res.json();
-            if(data.success) {
-                showToast(`Ticket Booked!`, 'success');
-                tPassenger.value = ''; tFare.value = '';
+            if (data.success) {
+                showToast(`Tickets Booked!`, 'success');
+                tPassenger.value = '';
+                if (tCount) tCount.value = 1;
+                calculateFare();
                 fetchData();
             } else { showToast(data.error, 'error'); }
-        } catch(e) {}
+        } catch (e) { }
     });
 }
 
 // Route Builder DOM function
 function renderBuilderStops() {
-    if(!builderStopsList) return;
+    if (!builderStopsList) return;
     builderStopsList.innerHTML = '';
-    
-    if(tempRouteStops.length === 0) {
-        if(emptyStopsMsg) builderStopsList.appendChild(emptyStopsMsg);
+
+    if (tempRouteStops.length === 0) {
+        if (emptyStopsMsg) builderStopsList.appendChild(emptyStopsMsg);
         return;
     }
-    
+
     tempRouteStops.forEach((stop, index) => {
         const item = document.createElement('div');
         item.className = 'stop-item';
@@ -503,7 +563,7 @@ function renderBuilderStops() {
         `;
         builderStopsList.appendChild(item);
     });
-    
+
     builderStopsList.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.currentTarget.dataset.index);
@@ -524,16 +584,26 @@ function attachCancelListeners() {
                     body: JSON.stringify({ user_id: appState.currentUser.id, ticket_id: tid })
                 });
                 const data = await res.json();
-                if(data.success) { showToast('Ticket Cancelled', 'error'); fetchData(); }
+                if (data.success) { showToast('Ticket Cancelled', 'error'); fetchData(); }
                 else showToast(data.error, 'error');
-            } catch(e) {}
+            } catch (e) { }
         });
     });
 }
 
+function openAdminResetModal(busId) {
+    currentResetBusId = busId;
+    resetModalBusId.textContent = busId;
+    resetModalRouteId.innerHTML = '<option value="">Same Route</option>';
+    appState.adminData.routes.forEach(r => {
+        resetModalRouteId.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+    });
+    adminResetModal.classList.add('active');
+}
+
 // =============== VIEW MANAGEMENT ===============
 function showView(viewId) {
-    Object.values(views).forEach(v => { if(v) v.classList.remove('active'); });
+    Object.values(views).forEach(v => { if (v) v.classList.remove('active'); });
     if (views[viewId]) views[viewId].classList.add('active');
 
     if (appState.currentUser) {
@@ -562,17 +632,23 @@ function updateAdminView() {
 }
 
 function populateAdminDropdowns() {
-    if (assignRoute && assignRoute.options.length <= 1 && appState.adminData.routes.length > 0) {
+    if (assignRoute && appState.adminData.routes.length > 0 && assignRoute.options.length !== appState.adminData.routes.length + 1) {
+        const val = assignRoute.value;
         assignRoute.innerHTML = '<option value="">Select Route</option>';
         appState.adminData.routes.forEach(r => assignRoute.innerHTML += `<option value="${r.id}">${r.name}</option>`);
+        assignRoute.value = val;
     }
-    if (assignDriver && assignDriver.options.length <= 1) {
+    if (assignDriver && appState.adminData.drivers.length > 0 && assignDriver.options.length !== appState.adminData.drivers.length + 1) {
+        const val = assignDriver.value;
         assignDriver.innerHTML = '<option value="">Select Driver</option>';
         appState.adminData.drivers.forEach(d => assignDriver.innerHTML += `<option value="${d.id}">${d.full_name}</option>`);
+        assignDriver.value = val;
     }
-    if (assignConductor && assignConductor.options.length <= 1) {
+    if (assignConductor && appState.adminData.conductors.length > 0 && assignConductor.options.length !== appState.adminData.conductors.length + 1) {
+        const val = assignConductor.value;
         assignConductor.innerHTML = '<option value="">Select Conductor</option>';
         appState.adminData.conductors.forEach(c => assignConductor.innerHTML += `<option value="${c.id}">${c.full_name}</option>`);
+        assignConductor.value = val;
     }
 }
 
@@ -592,7 +668,9 @@ function calculateFare() {
     const dropIdx = parseInt(dropVal);
     if (dropIdx > pickIdx && currentRouteStopNames.length > 0) {
         const distance = getRouteDistance(currentRouteStopNames, pickIdx, dropIdx);
-        tFare.value = (distance * FARE_PER_KM).toFixed(2);
+        let count = 1;
+        if (tCount) count = parseInt(tCount.value) || 1;
+        tFare.value = (distance * FARE_PER_KM * count).toFixed(2);
     } else {
         tFare.value = '';
     }
@@ -616,7 +694,7 @@ function handleDropChange() {
 }
 
 function populateTicketingDropdowns(stops) {
-    if(!tPick || !tDrop) return;
+    if (!tPick || !tDrop) return;
 
     // Build a hash of the current stops to avoid unnecessary DOM rebuilds
     const stopsHash = stops.map(s => `${s.index}:${s.name}:${s.visited}`).join(',');
@@ -632,12 +710,12 @@ function populateTicketingDropdowns(stops) {
     tDrop.innerHTML = '<option value="">Select Destination...</option>';
 
     stops.forEach(s => {
-        if(!s.visited) tPick.innerHTML += `<option value="${s.index}">${s.name}</option>`;
+        if (!s.visited) tPick.innerHTML += `<option value="${s.index}">${s.name}</option>`;
         tDrop.innerHTML += `<option value="${s.index}">${s.name}</option>`;
     });
 
-    if(prevPick) tPick.value = prevPick;
-    if(prevDrop) tDrop.value = prevDrop;
+    if (prevPick) tPick.value = prevPick;
+    if (prevDrop) tDrop.value = prevDrop;
 
     // Disable drop options that are at or before the current pick
     if (tPick.value) {
@@ -653,24 +731,42 @@ function populateTicketingDropdowns(stops) {
     tDrop.removeEventListener('change', handleDropChange);
     tPick.addEventListener('change', handlePickChange);
     tDrop.addEventListener('change', handleDropChange);
+    if (tCount) {
+        tCount.removeEventListener('input', calculateFare);
+        tCount.addEventListener('input', calculateFare);
+    }
 }
 
 function updateConductorView() {
     const busHeader = appState.busData.route_name ? `${appState.busData.bus_id} (${appState.busData.route_name})` : appState.busData.bus_id;
     conductorBusId.textContent = busHeader;
     conductorRevenue.textContent = `₹${appState.busData.revenue}`;
-    
-    if(appState.busData.bus_id === 'Off Duty') {
+
+    if (appState.busData.bus_id === 'Off Duty') {
         conductorStopsContainer.innerHTML = '<div class="text-muted">You have no active assignment for today.</div>';
         return;
     }
 
     populateTicketingDropdowns(appState.busData.stops);
 
+    const allVisited = appState.busData.stops.every(s => s.visited);
+    if (conductorResetBtn) conductorResetBtn.style.display = allVisited ? 'flex' : 'none';
+
+    let nextUnvisitedIdx = -1;
+    for (let i = 0; i < appState.busData.stops.length; i++) {
+        if (!appState.busData.stops[i].visited) {
+            nextUnvisitedIdx = appState.busData.stops[i].index;
+            break;
+        }
+    }
+
     const stopsDOM = appState.busData.stops.map(stop => {
         const checkedHTML = stop.visited ? `<i data-lucide="check"></i>` : '';
+        const isNextUnvisited = (stop.index === nextUnvisitedIdx);
+        const disabledClass = (!stop.visited && !isNextUnvisited) ? 'disabled-stop' : '';
+
         return `
-            <div class="stop-item ${stop.visited ? 'visited' : ''}" data-index="${stop.index}">
+            <div class="stop-item ${stop.visited ? 'visited' : ''} ${disabledClass}" data-index="${stop.index}" style="${disabledClass ? 'opacity: 0.5; pointer-events: none;' : ''}">
                 <div class="stop-info">
                     <span class="stop-index">${stop.index + 1}</span>
                     <span class="stop-name">${stop.name}</span>
@@ -678,16 +774,18 @@ function updateConductorView() {
                 <div class="stop-checkbox">${checkedHTML}</div>
             </div>`;
     }).join('');
-    
+
     conductorStopsContainer.innerHTML = stopsDOM;
-    
-    conductorStopsContainer.querySelectorAll('.stop-item:not(.visited)').forEach(item => {
+
+    conductorStopsContainer.querySelectorAll('.stop-item:not(.visited):not(.disabled-stop)').forEach(item => {
         item.addEventListener('click', async () => {
             const idx = item.dataset.index;
-            await fetch(`${API_URL}/action/stop`, {
+            const res = await fetch(`${API_URL}/action/stop`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: appState.currentUser.id, stop_index: parseInt(idx) })
             });
+            const data = await res.json();
+            if (data.error) showToast(data.error, 'error');
             fetchData();
         });
     });
@@ -695,7 +793,7 @@ function updateConductorView() {
     const active = appState.busData.active_passengers || [];
     passCount.textContent = `${active.length} / 20 Seats`;
     passList.innerHTML = active.length === 0 ? '<div class="text-muted" style="padding: 1rem;">No active passengers.</div>' : '';
-    
+
     active.forEach(p => {
         const dropStop = appState.busData.stops.find(s => s.index === p.drop_stop_index);
         passList.innerHTML += `
@@ -712,15 +810,15 @@ function updateConductorView() {
                 </button>
             </div>`;
     });
-    
+
     attachCancelListeners(); lucide.createIcons();
 }
 
 function updateDriverView() {
     const busHeader = appState.busData.route_name ? `${appState.busData.bus_id} (${appState.busData.route_name})` : appState.busData.bus_id;
     driverBusId.textContent = busHeader;
-    
-    if(appState.busData.bus_id === 'Off Duty') {
+
+    if (appState.busData.bus_id === 'Off Duty') {
         driverStopsContainer.innerHTML = '<div class="text-muted">You have no active assignment for today.</div>';
         return;
     }
