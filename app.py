@@ -39,6 +39,14 @@ def init_db():
         conductor_id INTEGER,
         UNIQUE(assign_date, bus_id)
     )''')
+    try:
+        c.execute("ALTER TABLE assignments ADD COLUMN is_reversed BOOLEAN DEFAULT 0")
+    except:
+        pass
+    try:
+        c.execute("ALTER TABLE assignments ADD COLUMN status TEXT DEFAULT 'ACTIVE'")
+    except:
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         assignment_id INTEGER,
@@ -130,24 +138,39 @@ def get_admin_data():
 def admin_get_users():
     conn = get_db()
     c = conn.cursor()
+    today = date.today().isoformat()
+    c.execute("SELECT driver_id, conductor_id FROM assignments WHERE assign_date = ? AND IFNULL(status, 'ACTIVE') = 'ACTIVE'", (today,))
+    active = c.fetchall()
+    active_drivers = set([r['driver_id'] for r in active])
+    active_conductors = set([r['conductor_id'] for r in active])
+    
     c.execute("SELECT id, full_name, role FROM users WHERE role != 'Admin'")
     users = [dict(row) for row in c.fetchall()]
     conn.close()
-    return jsonify({"drivers": [u for u in users if u['role'] == 'Driver'], "conductors": [u for u in users if u['role'] == 'Conductor']})
+    
+    drivers = [u for u in users if u['role'] == 'Driver' and u['id'] not in active_drivers]
+    conductors = [u for u in users if u['role'] == 'Conductor' and u['id'] not in active_conductors]
+    
+    return jsonify({"drivers": drivers, "conductors": conductors})
 
 @app.route('/api/admin/active_staff', methods=['GET'])
 def active_staff():
     conn = get_db()
     c = conn.cursor()
     c.execute("""
-        SELECT a.bus_id, r.name as route_name, d.full_name as driver, c.full_name as conductor
+        SELECT a.id, a.bus_id, r.name as route_name, d.full_name as driver, c.full_name as conductor,
+               (SELECT COUNT(*) FROM journey_stops js WHERE js.assignment_id = a.id AND js.visited = 0) as pending_stops
         FROM assignments a
         JOIN routes r ON a.route_id = r.id
         LEFT JOIN users d ON a.driver_id = d.id
         LEFT JOIN users c ON a.conductor_id = c.id
-        WHERE a.assign_date = ?
+        WHERE a.assign_date = ? AND IFNULL(a.status, 'ACTIVE') = 'ACTIVE'
     """, (date.today().isoformat(),))
-    ops = [dict(row) for row in c.fetchall()]
+    ops = []
+    for row in c.fetchall():
+        d = dict(row)
+        d['is_complete'] = (d['pending_stops'] == 0)
+        ops.append(d)
     conn.close()
     return jsonify({"active_operations": ops})
 
@@ -159,10 +182,11 @@ def all_staff():
     today = date.today().isoformat()
     query = """
         SELECT u.id, u.username, u.full_name, u.role, 
-               IFNULL(ad.bus_id, ac.bus_id) as bus_id
+               IFNULL(ad.bus_id, ac.bus_id) as bus_id,
+               IFNULL(ad.route_id, ac.route_id) as assigned_route_id
         FROM users u
-        LEFT JOIN assignments ad ON u.id = ad.driver_id AND ad.assign_date = ?
-        LEFT JOIN assignments ac ON u.id = ac.conductor_id AND ac.assign_date = ?
+        LEFT JOIN assignments ad ON u.id = ad.driver_id AND ad.assign_date = ? AND IFNULL(ad.status, 'ACTIVE') = 'ACTIVE'
+        LEFT JOIN assignments ac ON u.id = ac.conductor_id AND ac.assign_date = ? AND IFNULL(ac.status, 'ACTIVE') = 'ACTIVE'
         WHERE u.role != 'Admin'
         ORDER BY u.role, u.full_name
     """
@@ -229,10 +253,17 @@ def assign_bus():
         c.execute("SELECT stops_json FROM routes WHERE id = ?", (route_id,))
         route = c.fetchone()
         if not route: return jsonify({"error": "Route not found"}), 404
+        
+        c.execute("SELECT bus_id FROM assignments WHERE assign_date = ? AND IFNULL(status, 'ACTIVE') = 'ACTIVE' AND (driver_id = ? OR conductor_id = ?) AND bus_id != ?", 
+                  (assign_date, driver_id, conductor_id, bus_id))
+        busy = c.fetchone()
+        if busy:
+            return jsonify({"error": f"Staff member is already actively assigned to bus {busy['bus_id']}"}), 400
+            
         stops = json.loads(route['stops_json'])
         c.execute("""
-            INSERT OR REPLACE INTO assignments (assign_date, route_id, bus_id, driver_id, conductor_id) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO assignments (assign_date, route_id, bus_id, driver_id, conductor_id, status) 
+            VALUES (?, ?, ?, ?, ?, 'ACTIVE')
         """, (assign_date, route_id, bus_id, driver_id, conductor_id))
         
         c.execute("SELECT id FROM assignments WHERE assign_date = ? AND bus_id = ?", (assign_date, bus_id))
@@ -269,9 +300,9 @@ def get_assignment_for_user(user_id, role, today_str):
     c = conn.cursor()
     col = "driver_id" if role == "Driver" else "conductor_id"
     c.execute(f"""
-        SELECT a.id as assign_id, a.bus_id, r.name as route_name, r.stops_json 
+        SELECT a.id as assign_id, a.bus_id, a.route_id, a.is_reversed, r.name as route_name, r.stops_json 
         FROM assignments a JOIN routes r ON a.route_id = r.id
-        WHERE a.{col} = ? AND a.assign_date = ?
+        WHERE a.{col} = ? AND a.assign_date = ? AND IFNULL(a.status, 'ACTIVE') = 'ACTIVE'
     """, (user_id, today_str))
     assignment = c.fetchone()
     conn.close()
@@ -286,6 +317,8 @@ def sync_state():
         
     assign_id = assignment['assign_id']
     base_stops = json.loads(assignment['stops_json'])
+    if dict(assignment).get('is_reversed'):
+        base_stops.reverse()
     
     conn = get_db()
     c = conn.cursor()
@@ -312,6 +345,81 @@ def sync_state():
     })
 
 # ================= ACTIONS API =================
+@app.route('/api/action/end_journey', methods=['POST'])
+def end_journey():
+    data = request.json
+    assignment = get_assignment_for_user(data.get('user_id'), "Conductor", date.today().isoformat())
+    if not assignment: return jsonify({"error": "No active assignment"}), 404
+        
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        assign_id = assignment['assign_id']
+        c.execute("UPDATE assignments SET status = 'COMPLETED' WHERE id = ?", (assign_id,))
+        c.execute("UPDATE tickets SET status = 'COMPLETED' WHERE assignment_id = ? AND status = 'ACTIVE'", (assign_id,))
+        conn.commit()
+    except Exception as e: return jsonify({"error": str(e)}), 500
+    finally: conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/action/reset_journey', methods=['POST'])
+def conductor_reset_journey():
+    data = request.json
+    assignment = get_assignment_for_user(data.get('user_id'), "Conductor", date.today().isoformat())
+    if not assignment: return jsonify({"error": "No assignment"}), 404
+        
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        assign_id = assignment['assign_id']
+        current_reversed = dict(assignment).get('is_reversed', 0)
+        new_reversed = 1 if not current_reversed else 0
+        
+        c.execute("UPDATE assignments SET is_reversed = ? WHERE id = ?", (new_reversed, assign_id))
+        c.execute("DELETE FROM journey_stops WHERE assignment_id = ?", (assign_id,))
+        
+        stops_count = len(json.loads(assignment['stops_json']))
+        for i in range(stops_count):
+            c.execute("INSERT INTO journey_stops (assignment_id, stop_index, visited) VALUES (?, ?, 0)", (assign_id, i))
+            
+        c.execute("UPDATE tickets SET status = 'COMPLETED' WHERE assignment_id = ? AND status = 'ACTIVE'", (assign_id,))
+        conn.commit()
+    except Exception as e: return jsonify({"error": str(e)}), 500
+    finally: conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/reset_bus', methods=['POST'])
+def admin_reset_bus():
+    data = request.json
+    bus_id = data.get('bus_id')
+    new_route_id = data.get('route_id')
+    
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("SELECT id, route_id FROM assignments WHERE bus_id = ? AND assign_date = ?", (bus_id, date.today().isoformat()))
+        assignment = c.fetchone()
+        if not assignment: return jsonify({"error": "Active bus not found"}), 404
+        
+        assign_id = assignment['id']
+        route_to_use = new_route_id if new_route_id else assignment['route_id']
+        
+        c.execute("UPDATE assignments SET route_id = ?, is_reversed = 0 WHERE id = ?", (route_to_use, assign_id))
+        c.execute("DELETE FROM journey_stops WHERE assignment_id = ?", (assign_id,))
+        
+        c.execute("SELECT stops_json FROM routes WHERE id = ?", (route_to_use,))
+        route = c.fetchone()
+        stops_count = len(json.loads(route['stops_json']))
+        
+        for i in range(stops_count):
+            c.execute("INSERT INTO journey_stops (assignment_id, stop_index, visited) VALUES (?, ?, 0)", (assign_id, i))
+            
+        c.execute("UPDATE tickets SET status = 'COMPLETED' WHERE assignment_id = ? AND status = 'ACTIVE'", (assign_id,))
+        conn.commit()
+    except Exception as e: return jsonify({"error": str(e)}), 500
+    finally: conn.close()
+    return jsonify({"success": True})
+
 @app.route('/api/action/ticket', methods=['POST'])
 def issue_ticket():
     data = request.json
@@ -323,6 +431,7 @@ def issue_ticket():
     drop_idx = int(data.get('drop_stop_index'))
     fare = float(data.get('fare', 0))
     pname = data.get('passenger_name')
+    ticket_count = int(data.get('ticket_count', 1))
     
     if drop_idx <= pick_idx: return jsonify({"error": "Drop location must be after pick location"}), 400
         
@@ -336,11 +445,15 @@ def issue_ticket():
         c.execute("SELECT seat_number FROM tickets WHERE assignment_id = ? AND status = 'ACTIVE'", (assign_id,))
         active_seats = [r['seat_number'] for r in c.fetchall()]
         
-        if len(active_seats) >= 20: return jsonify({"error": "Bus is entirely full (Capacity 20)"}), 400
-        assigned_seat = next(i for i in range(1, 21) if i not in active_seats)
+        if len(active_seats) + ticket_count > 20: 
+            return jsonify({"error": f"Not enough seats available. (Requested: {ticket_count}, Available: {20 - len(active_seats)})"}), 400
+            
+        available_seats = [i for i in range(1, 21) if i not in active_seats]
+        assigned_seats = available_seats[:ticket_count]
         
-        c.execute("INSERT INTO tickets (assignment_id, passenger_name, pick_stop_index, drop_stop_index, fare, seat_number) VALUES (?, ?, ?, ?, ?, ?)",
-                 (assign_id, pname, pick_idx, drop_idx, fare, assigned_seat))
+        for seat in assigned_seats:
+            c.execute("INSERT INTO tickets (assignment_id, passenger_name, pick_stop_index, drop_stop_index, fare, seat_number) VALUES (?, ?, ?, ?, ?, ?)",
+                     (assign_id, pname, pick_idx, drop_idx, fare, seat))
         conn.commit()
     except Exception as e: return jsonify({"error": str(e)}), 500
     finally: conn.close()
@@ -357,11 +470,21 @@ def mark_stop():
     c = conn.cursor()
     try:
         assign_id = assignment['assign_id']
+        
+        if int(stop_idx) > 0:
+            c.execute("SELECT COUNT(*) as unvisited_count FROM journey_stops WHERE assignment_id = ? AND stop_index < ? AND visited = 0", (assign_id, stop_idx))
+            if c.fetchone()['unvisited_count'] > 0:
+                conn.close()
+                return jsonify({"error": "Cannot skip previous stops"}), 400
+                
         c.execute("UPDATE journey_stops SET visited = 1 WHERE assignment_id = ? AND stop_index = ?", (assign_id, stop_idx))
         c.execute("UPDATE tickets SET status = 'ALIGHTED' WHERE assignment_id = ? AND drop_stop_index = ? AND status = 'ACTIVE'", (assign_id, stop_idx))
         conn.commit()
     except Exception as e: return jsonify({"error": str(e)}), 500
-    finally: conn.close()
+    finally: 
+        # Safely attempt to close, if not already closed
+        try: conn.close()
+        except: pass
     return jsonify({"success": True})
 
 @app.route('/api/action/cancel_ticket', methods=['POST'])

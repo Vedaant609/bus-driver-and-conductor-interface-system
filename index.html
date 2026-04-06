@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+
 <body>
     <div id="app">
         <!-- Header -->
@@ -38,7 +40,7 @@
                         <h2>Welcome Back</h2>
                         <p>Enter your credentials to continue</p>
                     </div>
-                    
+
                     <div class="input-group">
                         <label for="username">User ID</label>
                         <input type="text" id="username" placeholder="e.g. admin, c1, d1">
@@ -58,7 +60,7 @@
                 <div class="dashboard-header">
                     <h2>Admin Dashboard</h2>
                 </div>
-                
+
                 <div class="stats-grid" id="admin-stats">
                     <div class="stat-card">
                         <div class="stat-icon"><i data-lucide="indian-rupee"></i></div>
@@ -74,7 +76,8 @@
                             <p id="total-tickets">0</p>
                         </div>
                     </div>
-                    <div class="stat-card" id="total-staff-card" style="cursor: pointer; transition: transform 0.2s;" title="Click to view All Staff Directory">
+                    <div class="stat-card" id="total-staff-card" style="cursor: pointer; transition: transform 0.2s;"
+                        title="Click to view All Staff Directory">
                         <div class="stat-icon"><i data-lucide="users"></i></div>
                         <div class="stat-info">
                             <h3>Total Staff</h3>
@@ -84,23 +87,27 @@
                 </div>
 
                 <div class="card analytics-card" style="margin-bottom: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <h3><i data-lucide="bar-chart-2"></i> Daily Analytics</h3>
-                        <input type="date" id="analytics-date" class="input-group" style="margin-bottom: 0; padding: 0.5rem; width: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-page); color: var(--text-primary); outline: none;">
+                        <input type="date" id="analytics-date" class="input-group"
+                            style="margin-bottom: 0; padding: 0.5rem; width: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-page); color: var(--text-primary); outline: none;">
                     </div>
                     <div class="stop-list" id="analytics-list">
                         <!-- populated via JS -->
                         <div class="text-muted" style="padding: 1rem;">Select a date to view analytics</div>
                     </div>
                 </div>
-                <div id="live-operations-panel" class="card hidden" style="margin-bottom: 2rem; border-left: 4px solid var(--green-success);">
+                <div id="live-operations-panel" class="card hidden"
+                    style="margin-bottom: 2rem; border-left: 4px solid var(--green-success);">
                     <h3><i data-lucide="activity"></i> Live Operations</h3>
                     <div class="stop-list" id="operations-list">
                         <div class="text-muted" style="padding: 1rem;">Loading active operations...</div>
                     </div>
                 </div>
 
-                <div id="all-staff-panel" class="card hidden" style="margin-bottom: 2rem; border-left: 4px solid var(--purple-primary);">
+                <div id="all-staff-panel" class="card hidden"
+                    style="margin-bottom: 2rem; border-left: 4px solid var(--purple-primary);">
                     <h3><i data-lucide="book-open"></i> All Staff Directory</h3>
                     <div class="stop-list" id="all-staff-list">
                         <div class="text-muted" style="padding: 1rem;">Loading staff directory...</div>
@@ -130,12 +137,13 @@
 
                     <div class="card">
                         <h3><i data-lucide="map"></i> Add Route</h3>
-                        <p class="text-muted" style="margin-bottom: 1.5rem;">Launch the builder to create dynamic routes with custom stops.</p>
+                        <p class="text-muted" style="margin-bottom: 1.5rem;">Launch the builder to create dynamic routes
+                            with custom stops.</p>
                         <button id="open-route-modal-btn" class="btn btn-secondary full-width">
                             <i data-lucide="map-pin"></i> Open Route Builder
                         </button>
                     </div>
-                    
+
                     <div class="card special-card">
                         <h3><i data-lucide="calendar"></i> Assign Bus</h3>
                         <div class="input-group">
@@ -175,7 +183,7 @@
                     <h2>Conductor Dashboard</h2>
                     <span class="bus-badge" id="conductor-bus"></span>
                 </div>
-                
+
                 <div class="conductor-layout">
                     <div class="panel ticket-panel">
                         <h3>Ticket Operations</h3>
@@ -186,15 +194,26 @@
                             </div>
                             <div class="input-group">
                                 <label>Pick Location</label>
-                                <select id="ticket-pick"><option>Loading...</option></select>
+                                <select id="ticket-pick">
+                                    <option>Loading...</option>
+                                </select>
                             </div>
                             <div class="input-group">
                                 <label>Drop Location</label>
-                                <select id="ticket-drop"><option>Loading...</option></select>
+                                <select id="ticket-drop">
+                                    <option>Loading...</option>
+                                </select>
                             </div>
-                            <div class="input-group">
-                                <label>Fare (₹) — Auto-calculated</label>
-                                <input type="number" id="ticket-fare" placeholder="Select From & To" readonly style="cursor: default; opacity: 0.85;">
+                            <div class="input-group" style="display: flex; gap: 1rem; align-items: flex-end;">
+                                <div style="flex: 1; margin-bottom: 0;">
+                                    <label>Number of Tickets</label>
+                                    <input type="number" id="ticket-count" value="1" min="1" max="20" placeholder="1">
+                                </div>
+                                <div style="flex: 1; margin-bottom: 0;">
+                                    <label>Total Fare (₹)</label>
+                                    <input type="number" id="ticket-fare" placeholder="0" readonly
+                                        style="cursor: default; opacity: 0.85;">
+                                </div>
                             </div>
                             <button id="issue-ticket-btn" class="btn btn-primary full-width">
                                 <i data-lucide="ticket"></i> Book Ticket
@@ -206,7 +225,14 @@
                     </div>
 
                     <div class="panel route-panel">
-                        <h3>Route Progress</h3>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0;">Route Progress</h3>
+                            <button id="conductor-reset-btn" class="btn btn-outline"
+                                style="padding: 0.25rem 0.5rem; font-size: 0.8rem; display: none; align-items: center; gap: 0.25rem;">
+                                <i data-lucide="refresh-cw" style="width: 14px;"></i> Reverse & Reset
+                            </button>
+                        </div>
                         <div class="stop-list" id="conductor-stops">
                             <!-- Populated by JS -->
                         </div>
@@ -214,7 +240,8 @@
                 </div>
 
                 <div class="panel passenger-panel" style="margin-top: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                         <h3 style="margin: 0;"><i data-lucide="users"></i> Active Passengers</h3>
                         <span id="passenger-count" class="badge">0 / 20 Seats</span>
                     </div>
@@ -234,7 +261,8 @@
                 <div class="driver-layout">
                     <div class="panel big-route-panel">
                         <div class="driver-instructions">
-                            <p><i data-lucide="alert-circle"></i> Stops highlighted in <strong class="text-danger">Red</strong> have passengers alighting.</p>
+                            <p><i data-lucide="alert-circle"></i> Stops highlighted in <strong
+                                    class="text-danger">Red</strong> have passengers alighting.</p>
                         </div>
                         <div class="stop-list driver-stop-list" id="driver-stops">
                             <!-- Populated by JS -->
@@ -243,6 +271,23 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- Admin Reset Bus Modal -->
+    <div class="modal-overlay" id="admin-reset-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i data-lucide="refresh-cw"></i> Reset Bus Journey</h3>
+                <button class="btn-icon" id="close-admin-reset-modal"><i data-lucide="x"></i></button>
+            </div>
+            <p class="text-muted" style="margin-bottom: 1rem;">Resetting <strong id="reset-modal-bus-id"></strong> will
+                wipe current journey progress and complete all active tickets.</p>
+            <div class="input-group">
+                <label>Route to use (Changeable)</label>
+                <select id="reset-modal-route-id"></select>
+            </div>
+            <button class="btn btn-primary full-width" id="confirm-admin-reset-btn">Confirm Reset</button>
+        </div>
     </div>
 
     <!-- Notification Toast -->
@@ -255,7 +300,7 @@
                 <h3><i data-lucide="map"></i> Route Builder</h3>
                 <button class="btn-icon" id="close-route-modal"><i data-lucide="x"></i></button>
             </div>
-            
+
             <div class="input-group">
                 <label>Route Name</label>
                 <input type="text" id="builder-route-name" placeholder="e.g. Expressway Route">
@@ -269,8 +314,10 @@
                 <button class="btn btn-secondary" id="add-stop-btn"><i data-lucide="plus"></i> Add</button>
             </div>
 
-            <div class="stop-list" id="builder-stops-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-page); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                <div class="text-muted" id="empty-stops-msg" style="padding: 1rem; text-align: center;">No stops added yet</div>
+            <div class="stop-list" id="builder-stops-list"
+                style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-page); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="text-muted" id="empty-stops-msg" style="padding: 1rem; text-align: center;">No stops added
+                    yet</div>
             </div>
 
             <button class="btn btn-primary full-width" id="save-route-btn">Save Route</button>
@@ -279,4 +326,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
