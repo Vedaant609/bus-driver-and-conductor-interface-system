@@ -260,6 +260,11 @@ def assign_bus():
         if busy:
             return jsonify({"error": f"Staff member is already actively assigned to bus {busy['bus_id']}"}), 400
             
+        c.execute("SELECT id FROM assignments WHERE assign_date = ? AND bus_id = ? AND IFNULL(status, 'ACTIVE') = 'ACTIVE'", (assign_date, bus_id))
+        active_bus = c.fetchone()
+        if active_bus:
+            return jsonify({"error": f"Bus {bus_id} is already actively on a journey. Reset it in Live Operations or assign a different Bus ID."}), 400
+            
         stops = json.loads(route['stops_json'])
         c.execute("""
             INSERT OR REPLACE INTO assignments (assign_date, route_id, bus_id, driver_id, conductor_id, status) 
@@ -393,18 +398,30 @@ def admin_reset_bus():
     data = request.json
     bus_id = data.get('bus_id')
     new_route_id = data.get('route_id')
+    new_driver_id = data.get('driver_id')
+    new_conductor_id = data.get('conductor_id')
+    is_reversed = data.get('is_reversed', False)
+    db_is_rev = 1 if is_reversed else 0
     
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute("SELECT id, route_id FROM assignments WHERE bus_id = ? AND assign_date = ?", (bus_id, date.today().isoformat()))
+        c.execute("SELECT id, route_id, driver_id, conductor_id FROM assignments WHERE bus_id = ? AND assign_date = ?", (bus_id, date.today().isoformat()))
         assignment = c.fetchone()
         if not assignment: return jsonify({"error": "Active bus not found"}), 404
         
         assign_id = assignment['id']
         route_to_use = new_route_id if new_route_id else assignment['route_id']
+        driver_to_use = new_driver_id if new_driver_id else assignment['driver_id']
+        conductor_to_use = new_conductor_id if new_conductor_id else assignment['conductor_id']
         
-        c.execute("UPDATE assignments SET route_id = ?, is_reversed = 0 WHERE id = ?", (route_to_use, assign_id))
+        c.execute("SELECT bus_id FROM assignments WHERE assign_date = ? AND IFNULL(status, 'ACTIVE') = 'ACTIVE' AND (driver_id = ? OR conductor_id = ?) AND id != ?", 
+                  (date.today().isoformat(), driver_to_use, conductor_to_use, assign_id))
+        busy = c.fetchone()
+        if busy:
+            return jsonify({"error": f"Staff member is already actively assigned to bus {busy['bus_id']}"}), 400
+        
+        c.execute("UPDATE assignments SET route_id = ?, driver_id = ?, conductor_id = ?, is_reversed = ? WHERE id = ?", (route_to_use, driver_to_use, conductor_to_use, db_is_rev, assign_id))
         c.execute("DELETE FROM journey_stops WHERE assignment_id = ?", (assign_id,))
         
         c.execute("SELECT stops_json FROM routes WHERE id = ?", (route_to_use,))

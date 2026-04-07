@@ -195,6 +195,8 @@ const closeAdminResetModal = document.getElementById('close-admin-reset-modal');
 const confirmAdminResetBtn = document.getElementById('confirm-admin-reset-btn');
 const resetModalBusId = document.getElementById('reset-modal-bus-id');
 const resetModalRouteId = document.getElementById('reset-modal-route-id');
+const resetModalDriverId = document.getElementById('reset-modal-driver-id');
+const resetModalConductorId = document.getElementById('reset-modal-conductor-id');
 let currentResetBusId = null;
 
 const tPassenger = document.getElementById('ticket-passenger');
@@ -321,8 +323,7 @@ async function fetchActiveStaff() {
         }
         data.active_operations.forEach(op => {
             const isComplete = op.is_complete;
-            const resetBtnHTML = isComplete ?
-                `<button class="btn btn-outline admin-reset-bus-btn" data-bus="${op.bus_id}" style="padding: 0.25rem 0.5rem; color: var(--yellow-primary); border-color: var(--yellow-primary); font-size: 0.8rem;">Reset</button>` : '';
+            const resetBtnHTML = `<button class="btn btn-outline admin-reset-bus-btn" data-bus="${op.bus_id}" style="padding: 0.25rem 0.5rem; color: var(--yellow-primary); border-color: var(--yellow-primary); font-size: 0.8rem;">Reset</button>`;
 
             opsList.innerHTML += `
                 <div class="stop-item">
@@ -501,11 +502,27 @@ function bindEvents() {
     if (closeAdminResetModal) closeAdminResetModal.addEventListener('click', () => adminResetModal.classList.remove('active'));
     if (confirmAdminResetBtn) confirmAdminResetBtn.addEventListener('click', async () => {
         if (!currentResetBusId) return;
-        const newRouteId = resetModalRouteId.value ? parseInt(resetModalRouteId.value) : null;
+        
+        let newRouteId = resetModalRouteId.value;
+        let isReversed = false;
+        
+        if (newRouteId === "REVERSE") {
+            newRouteId = null;
+            isReversed = true;
+        } else if (newRouteId === "") {
+            newRouteId = null;
+            isReversed = false;
+        } else {
+            newRouteId = parseInt(newRouteId);
+            isReversed = false;
+        }
+
+        const newDriverId = resetModalDriverId.value ? parseInt(resetModalDriverId.value) : null;
+        const newConductorId = resetModalConductorId.value ? parseInt(resetModalConductorId.value) : null;
         try {
             const res = await fetch(`${API_URL}/admin/reset_bus`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bus_id: currentResetBusId, route_id: newRouteId })
+                body: JSON.stringify({ bus_id: currentResetBusId, route_id: newRouteId, driver_id: newDriverId, conductor_id: newConductorId, is_reversed: isReversed })
             });
             const data = await res.json();
             if (data.success) {
@@ -656,10 +673,22 @@ function attachCancelListeners() {
 function openAdminResetModal(busId) {
     currentResetBusId = busId;
     resetModalBusId.textContent = busId;
-    resetModalRouteId.innerHTML = '<option value="">Same Route</option>';
+    resetModalRouteId.innerHTML = '<option value="">Same Route (Forward)</option>';
+    resetModalRouteId.innerHTML += '<option value="REVERSE">Same Route (Reversed)</option>';
     appState.adminData.routes.forEach(r => {
         resetModalRouteId.innerHTML += `<option value="${r.id}">${r.name}</option>`;
     });
+    
+    resetModalDriverId.innerHTML = '<option value="">Same Driver</option>';
+    appState.adminData.drivers.forEach(d => {
+        resetModalDriverId.innerHTML += `<option value="${d.id}">${d.full_name}</option>`;
+    });
+    
+    resetModalConductorId.innerHTML = '<option value="">Same Conductor</option>';
+    appState.adminData.conductors.forEach(c => {
+        resetModalConductorId.innerHTML += `<option value="${c.id}">${c.full_name}</option>`;
+    });
+    
     adminResetModal.classList.add('active');
 }
 
