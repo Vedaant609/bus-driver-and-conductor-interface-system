@@ -1,6 +1,68 @@
 const API_URL = 'http://localhost:5000/api';
 const FARE_PER_KM = 2; // ₹2 per km
 
+// =============== BUS CRASH ANIMATION ===============
+function triggerBusCrash() {
+    const container = document.querySelector('.bus-animation-container');
+    const movingBus = document.querySelector('.moving-bus');
+    if (!container || !movingBus) return;
+
+    // Add crash class to trigger CSS animations
+    container.classList.add('crash-active');
+
+    // Create crash effects container
+    const crashFx = document.createElement('div');
+    crashFx.className = 'crash-effects';
+
+    // Create sparks
+    for (let i = 0; i < 12; i++) {
+        const spark = document.createElement('div');
+        spark.className = 'crash-spark';
+        spark.style.setProperty('--spark-angle', `${Math.random() * 360}deg`);
+        spark.style.setProperty('--spark-distance', `${40 + Math.random() * 80}px`);
+        spark.style.setProperty('--spark-delay', `${Math.random() * 0.3}s`);
+        spark.style.setProperty('--spark-size', `${3 + Math.random() * 5}px`);
+        crashFx.appendChild(spark);
+    }
+
+    // Create debris pieces
+    const debrisColors = ['#9333ea', '#6b21a8', '#eab308', '#c4b5fd', '#475569'];
+    for (let i = 0; i < 8; i++) {
+        const debris = document.createElement('div');
+        debris.className = 'crash-debris';
+        debris.style.setProperty('--debris-x', `${-60 + Math.random() * 120}px`);
+        debris.style.setProperty('--debris-y', `${-30 + Math.random() * -80}px`);
+        debris.style.setProperty('--debris-rot', `${Math.random() * 720}deg`);
+        debris.style.setProperty('--debris-delay', `${Math.random() * 0.2}s`);
+        debris.style.background = debrisColors[Math.floor(Math.random() * debrisColors.length)];
+        crashFx.appendChild(debris);
+    }
+
+    // Create smoke cloud
+    const smokeCloud = document.createElement('div');
+    smokeCloud.className = 'crash-smoke-cloud';
+    crashFx.appendChild(smokeCloud);
+
+    // Create "CRASH!" text
+    const crashText = document.createElement('div');
+    crashText.className = 'crash-text';
+    crashText.textContent = 'CRASH!';
+    crashFx.appendChild(crashText);
+
+    container.appendChild(crashFx);
+
+    // Screen shake effect on the login card
+    const loginCard = document.querySelector('.login-card');
+    if (loginCard) loginCard.classList.add('screen-shake');
+
+    // Reset everything after animation completes
+    setTimeout(() => {
+        container.classList.remove('crash-active');
+        if (loginCard) loginCard.classList.remove('screen-shake');
+        crashFx.remove();
+    }, 3000);
+}
+
 // Distance map between consecutive stops (in km)
 // Key format: "FromStop|ToStop" => distance in km
 const DISTANCE_MAP = {
@@ -343,8 +405,8 @@ function bindEvents() {
                 loginPasswordInput.value = '';
                 showView(appState.currentUser.role.toLowerCase());
                 startPolling();
-            } else showToast(data.error, 'error');
-        } catch (e) { showToast('Connection failed', 'error'); }
+            } else { showToast(data.error, 'error'); triggerBusCrash(); }
+        } catch (e) { showToast('Connection failed', 'error'); triggerBusCrash(); }
         finally { loginSubmitBtn.disabled = false; loginSubmitBtn.textContent = 'Login'; }
     });
 

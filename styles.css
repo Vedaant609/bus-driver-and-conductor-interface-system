@@ -274,6 +274,388 @@ main {
     background: var(--bg-panel-hover);
 }
 
+/* ==============================
+   Bus Animation on Login Page
+   ============================== */
+.bus-animation-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#view-login {
+    position: relative;
+    min-height: calc(100vh - 70px);
+    overflow: hidden;
+}
+
+#view-login .login-card {
+    position: relative;
+    z-index: 1;
+}
+
+/* Road */
+.road {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    width: 100%;
+    height: 40px;
+    background: #1e293b;
+    border-top: 3px solid #475569;
+    border-bottom: 3px solid #475569;
+}
+
+[data-theme="light"] .road {
+    background: #64748b;
+    border-top-color: #94a3b8;
+    border-bottom-color: #94a3b8;
+}
+
+.road-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 200%;
+    height: 3px;
+    transform: translateY(-50%);
+    background: repeating-linear-gradient(
+        to right,
+        #eab308 0px,
+        #eab308 30px,
+        transparent 30px,
+        transparent 60px
+    );
+    animation: roadScroll 2s linear infinite;
+}
+
+@keyframes roadScroll {
+    0% { transform: translateY(-50%) translateX(0); }
+    100% { transform: translateY(-50%) translateX(-50%); }
+}
+
+/* Moving Bus */
+.moving-bus {
+    position: absolute;
+    bottom: 68px;
+    width: 180px;
+    animation: busMove 8s linear infinite, busBob 0.4s ease-in-out infinite;
+}
+
+@keyframes busMove {
+    0% { left: -200px; }
+    100% { left: calc(100% + 200px); }
+}
+
+@keyframes busBob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+.bus-svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+}
+
+/* Wheel Rotation */
+.wheel-spokes-front {
+    transform-origin: 58px 95px;
+    animation: wheelSpin 0.5s linear infinite;
+}
+
+.wheel-spokes-rear {
+    transform-origin: 198px 95px;
+    animation: wheelSpin 0.5s linear infinite;
+}
+
+@keyframes wheelSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Exhaust Smoke */
+.exhaust-smoke circle {
+    animation: smokePuff 1s ease-out infinite;
+}
+
+.exhaust-smoke circle:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.exhaust-smoke circle:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+@keyframes smokePuff {
+    0% { opacity: 0.3; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-20px, -10px) scale(1.8); }
+}
+
+/* Headlight glow effect */
+.bus-svg circle[fill="#fef9c3"] {
+    animation: headlightPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes headlightPulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+/* Scenery elements - subtle building silhouettes */
+.bus-animation-container::before {
+    content: '';
+    position: absolute;
+    bottom: 97px;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    background:
+        linear-gradient(to bottom, transparent 0%, var(--bg-page) 100%),
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 80px,
+            var(--border-color) 80px,
+            var(--border-color) 82px
+        );
+    opacity: 0.15;
+    pointer-events: none;
+}
+
+/* ==============================
+   Bus CRASH Animation (Login Fail)
+   ============================== */
+
+/* When crash is active, stop bus movement and trigger crash sequence */
+.crash-active .moving-bus {
+    animation: busCrashStop 0.3s ease-out forwards, busCrashShake 0.15s ease-in-out 0.3s 6;
+}
+
+@keyframes busCrashStop {
+    0% { /* inherits current position */ }
+    100% { left: 50% !important; transform: translateX(-50%) rotate(0deg); }
+}
+
+@keyframes busCrashShake {
+    0%, 100% { transform: translateX(-50%) rotate(0deg) translateY(0); }
+    20% { transform: translateX(-50%) rotate(3deg) translateY(-4px); }
+    40% { transform: translateX(-50%) rotate(-2deg) translateY(2px); }
+    60% { transform: translateX(-50%) rotate(2.5deg) translateY(-3px); }
+    80% { transform: translateX(-50%) rotate(-3deg) translateY(1px); }
+}
+
+/* After shake, bus tilts forward */
+.crash-active .moving-bus {
+    animation: busCrashStop 0.3s ease-out forwards, 
+               busCrashShake 0.15s ease-in-out 0.3s 4,
+               busCrashTilt 0.5s ease-in 1.2s forwards;
+}
+
+@keyframes busCrashTilt {
+    0% { transform: translateX(-50%) rotate(0deg); }
+    40% { transform: translateX(-50%) rotate(8deg) translateY(-5px); }
+    100% { transform: translateX(-50%) rotate(12deg) translateY(2px); }
+}
+
+/* Stop wheel spinning during crash */
+.crash-active .wheel-spokes-front,
+.crash-active .wheel-spokes-rear {
+    animation: none !important;
+}
+
+/* Stop road scrolling during crash */
+.crash-active .road-line {
+    animation-play-state: paused;
+}
+
+/* Crash effects container - positioned at bus center */
+.crash-effects {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 100px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Flying sparks */
+.crash-spark {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: var(--spark-size, 4px);
+    height: var(--spark-size, 4px);
+    background: #fde047;
+    border-radius: 50%;
+    box-shadow: 0 0 6px 2px rgba(253, 224, 71, 0.8), 0 0 12px 4px rgba(234, 179, 8, 0.4);
+    animation: sparkFly 0.8s ease-out var(--spark-delay, 0s) forwards;
+    opacity: 0;
+}
+
+@keyframes sparkFly {
+    0% { 
+        opacity: 1; 
+        transform: translate(0, 0) scale(1); 
+    }
+    100% { 
+        opacity: 0; 
+        transform: 
+            translate(
+                calc(cos(var(--spark-angle)) * var(--spark-distance)),
+                calc(sin(var(--spark-angle)) * var(--spark-distance) - 40px)
+            ) 
+            scale(0.2); 
+    }
+}
+
+/* Fallback spark animation for browsers not supporting trigonometric functions */
+.crash-spark:nth-child(1) { animation: sparkFly1 0.7s ease-out 0s forwards; }
+.crash-spark:nth-child(2) { animation: sparkFly2 0.6s ease-out 0.05s forwards; }
+.crash-spark:nth-child(3) { animation: sparkFly3 0.8s ease-out 0.1s forwards; }
+.crash-spark:nth-child(4) { animation: sparkFly4 0.65s ease-out 0.08s forwards; }
+.crash-spark:nth-child(5) { animation: sparkFly5 0.7s ease-out 0.12s forwards; }
+.crash-spark:nth-child(6) { animation: sparkFly6 0.75s ease-out 0.03s forwards; }
+.crash-spark:nth-child(7) { animation: sparkFly7 0.6s ease-out 0.15s forwards; }
+.crash-spark:nth-child(8) { animation: sparkFly8 0.7s ease-out 0.06s forwards; }
+.crash-spark:nth-child(9) { animation: sparkFly1 0.65s ease-out 0.1s forwards; }
+.crash-spark:nth-child(10) { animation: sparkFly3 0.7s ease-out 0.04s forwards; }
+.crash-spark:nth-child(11) { animation: sparkFly5 0.6s ease-out 0.13s forwards; }
+.crash-spark:nth-child(12) { animation: sparkFly7 0.75s ease-out 0.07s forwards; }
+
+@keyframes sparkFly1 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(60px, -70px) scale(0.3); } }
+@keyframes sparkFly2 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(-50px, -80px) scale(0.2); } }
+@keyframes sparkFly3 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(80px, -40px) scale(0.3); } }
+@keyframes sparkFly4 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(-70px, -60px) scale(0.2); } }
+@keyframes sparkFly5 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(40px, -90px) scale(0.3); } }
+@keyframes sparkFly6 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(-30px, -50px) scale(0.2); } }
+@keyframes sparkFly7 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(90px, -30px) scale(0.3); } }
+@keyframes sparkFly8 { 0% { opacity:1; transform: translate(0,0); } 100% { opacity:0; transform: translate(-80px, -45px) scale(0.2); } }
+
+/* Flying debris pieces */
+.crash-debris {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: debrisFly 1s ease-out var(--debris-delay, 0s) forwards;
+    opacity: 0;
+}
+
+@keyframes debrisFly {
+    0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+    70% { opacity: 1; }
+    100% { 
+        opacity: 0; 
+        transform: translate(var(--debris-x, 50px), var(--debris-y, -60px)) rotate(var(--debris-rot, 360deg)); 
+    }
+}
+
+/* Smoke cloud at crash point */
+.crash-smoke-cloud {
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(148, 163, 184, 0.6) 0%, rgba(100, 116, 139, 0.3) 50%, transparent 70%);
+    animation: smokeExpand 1.5s ease-out 0.2s forwards;
+    opacity: 0;
+}
+
+@keyframes smokeExpand {
+    0% { opacity: 0; transform: translateX(-50%) scale(1); }
+    20% { opacity: 0.7; }
+    100% { opacity: 0; transform: translateX(-50%) scale(6); }
+}
+
+/* "CRASH!" text popup */
+.crash-text {
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    transform: translateX(-50%) scale(0);
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #ef4444;
+    text-shadow: 
+        0 0 10px rgba(239, 68, 68, 0.8),
+        0 0 20px rgba(239, 68, 68, 0.5),
+        2px 2px 0 #991b1b,
+        -1px -1px 0 #fca5a5;
+    letter-spacing: 4px;
+    white-space: nowrap;
+    animation: crashTextPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.3s forwards,
+               crashTextFade 0.5s ease-in 2s forwards;
+    opacity: 0;
+    z-index: 10;
+}
+
+@keyframes crashTextPop {
+    0% { opacity: 0; transform: translateX(-50%) scale(0) rotate(-10deg); }
+    70% { transform: translateX(-50%) scale(1.2) rotate(3deg); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+}
+
+@keyframes crashTextFade {
+    0% { opacity: 1; transform: translateX(-50%) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) scale(0.8) translateY(-20px); }
+}
+
+/* Red flash overlay on crash */
+.crash-active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 80%, rgba(239, 68, 68, 0.3) 0%, transparent 60%);
+    animation: crashFlash 0.6s ease-out forwards;
+    z-index: 2;
+    pointer-events: none;
+}
+
+@keyframes crashFlash {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Login card screen shake on crash */
+.screen-shake {
+    animation: screenShake 0.5s ease-in-out 0.3s;
+}
+
+@keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5px, -3px); }
+    20% { transform: translate(4px, 2px); }
+    30% { transform: translate(-3px, 4px); }
+    40% { transform: translate(5px, -2px); }
+    50% { transform: translate(-4px, 3px); }
+    60% { transform: translate(3px, -4px); }
+    70% { transform: translate(-2px, 2px); }
+    80% { transform: translate(4px, -3px); }
+    90% { transform: translate(-3px, 1px); }
+}
+
+/* ==============================
+   End Bus Animation
+   ============================== */
+
 .role-btn.selected {
     border-color: var(--purple-primary);
     background: rgba(147, 51, 234, 0.1);
