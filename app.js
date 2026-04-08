@@ -795,26 +795,34 @@ function populateTicketingDropdowns(stops) {
     // Cache stop names for distance-based fare calculation
     currentRouteStopNames = stops.map(s => s.name);
 
-    const prevPick = tPick.value, prevDrop = tDrop.value;
+    const prevDrop = tDrop.value;
 
-    tPick.innerHTML = '<option value="">Select Boarding Point...</option>';
+    let nextUnvisitedIdx = -1;
+    for (let i = 0; i < stops.length; i++) {
+        if (!stops[i].visited) {
+            nextUnvisitedIdx = stops[i].index;
+            break;
+        }
+    }
+
+    tPick.innerHTML = '';
     tDrop.innerHTML = '<option value="">Select Destination...</option>';
 
+    if (nextUnvisitedIdx !== -1) {
+        const nextStop = stops.find(s => s.index === nextUnvisitedIdx);
+        tPick.innerHTML = `<option value="${nextStop.index}">${nextStop.name}</option>`;
+    } else {
+        tPick.innerHTML = `<option value="">End of route</option>`;
+    }
+
     stops.forEach(s => {
-        if (!s.visited) tPick.innerHTML += `<option value="${s.index}">${s.name}</option>`;
-        tDrop.innerHTML += `<option value="${s.index}">${s.name}</option>`;
+        if (s.index > nextUnvisitedIdx) {
+            tDrop.innerHTML += `<option value="${s.index}">${s.name}</option>`;
+        }
     });
 
-    if (prevPick) tPick.value = prevPick;
-    if (prevDrop) tDrop.value = prevDrop;
-
-    // Disable drop options that are at or before the current pick
-    if (tPick.value) {
-        const pIdx = parseInt(tPick.value);
-        Array.from(tDrop.options).forEach(opt => {
-            if (!opt.value) return;
-            opt.disabled = parseInt(opt.value) <= pIdx;
-        });
+    if (prevDrop && parseInt(prevDrop) > nextUnvisitedIdx) {
+        tDrop.value = prevDrop;
     }
 
     // Remove old listeners and rebind (safe for repeated calls)
@@ -826,22 +834,40 @@ function populateTicketingDropdowns(stops) {
         tCount.removeEventListener('input', calculateFare);
         tCount.addEventListener('input', calculateFare);
     }
+    
+    calculateFare();
 }
 
 function updateConductorView() {
+    const allVisited = appState.busData.stops && appState.busData.stops.length > 0 && appState.busData.stops.every(s => s.visited);
     const busHeader = appState.busData.route_name ? `${appState.busData.bus_id} (${appState.busData.route_name})` : appState.busData.bus_id;
-    conductorBusId.textContent = busHeader;
-    conductorRevenue.textContent = `₹${appState.busData.revenue}`;
 
-    if (appState.busData.bus_id === 'Off Duty') {
-        conductorStopsContainer.innerHTML = '<div class="text-muted">You have no active assignment for today.</div>';
+    if (appState.busData.bus_id === 'Off Duty' || allVisited) {
+        conductorBusId.textContent = 'Off Duty';
+        conductorRevenue.textContent = `₹${appState.busData.revenue || 0}`;
+        if (allVisited) {
+            conductorStopsContainer.innerHTML = '<div class="text-muted" style="margin-bottom: 1rem;">Route completed.</div>';
+            if (conductorResetBtn) {
+                conductorResetBtn.style.display = 'flex';
+                conductorStopsContainer.appendChild(conductorResetBtn);
+            }
+        } else {
+            conductorStopsContainer.innerHTML = '<div class="text-muted">You have no active assignment for today.</div>';
+            if (conductorResetBtn) conductorResetBtn.style.display = 'none';
+        }
+        
+        passCount.textContent = `0 / 20 Seats`;
+        passList.innerHTML = '<div class="text-muted" style="padding: 1rem;">No active passengers.</div>';
+        populateTicketingDropdowns([]);
         return;
     }
 
+    conductorBusId.textContent = busHeader;
+    conductorRevenue.textContent = `₹${appState.busData.revenue}`;
+
     populateTicketingDropdowns(appState.busData.stops);
 
-    const allVisited = appState.busData.stops.every(s => s.visited);
-    if (conductorResetBtn) conductorResetBtn.style.display = allVisited ? 'flex' : 'none';
+    if (conductorResetBtn) conductorResetBtn.style.display = 'none';
 
     let nextUnvisitedIdx = -1;
     for (let i = 0; i < appState.busData.stops.length; i++) {
@@ -906,13 +932,16 @@ function updateConductorView() {
 }
 
 function updateDriverView() {
+    const allVisited = appState.busData.stops && appState.busData.stops.length > 0 && appState.busData.stops.every(s => s.visited);
     const busHeader = appState.busData.route_name ? `${appState.busData.bus_id} (${appState.busData.route_name})` : appState.busData.bus_id;
-    driverBusId.textContent = busHeader;
 
-    if (appState.busData.bus_id === 'Off Duty') {
+    if (appState.busData.bus_id === 'Off Duty' || allVisited) {
+        driverBusId.textContent = 'Off Duty';
         driverStopsContainer.innerHTML = '<div class="text-muted">You have no active assignment for today.</div>';
         return;
     }
+    
+    driverBusId.textContent = busHeader;
 
     const stopsDOM = appState.busData.stops.map(stop => {
         const isAlighting = !stop.visited && stop.alighting > 0;
