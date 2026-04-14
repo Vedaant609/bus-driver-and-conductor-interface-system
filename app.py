@@ -181,7 +181,7 @@ def all_staff():
     # Get all users (except Admin), and join with today's assignments if any
     today = date.today().isoformat()
     query = """
-        SELECT u.id, u.username, u.full_name, u.role, 
+        SELECT u.id, u.username, u.full_name, u.role, u.password,
                IFNULL(ad.bus_id, ac.bus_id) as bus_id,
                IFNULL(ad.route_id, ac.route_id) as assigned_route_id
         FROM users u

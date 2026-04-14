@@ -343,18 +343,16 @@ main {
 .moving-bus {
     position: absolute;
     bottom: 68px;
+    left: 50%;
+    transform: translateX(-50%);
     width: 180px;
-    animation: busMove 8s linear infinite, busBob 0.4s ease-in-out infinite;
-}
-
-@keyframes busMove {
-    0% { left: -200px; }
-    100% { left: calc(100% + 200px); }
+    animation: busBob 0.4s ease-in-out infinite;
+    z-index: 2;
 }
 
 @keyframes busBob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-2px); }
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-2px); }
 }
 
 .bus-svg {
@@ -428,6 +426,58 @@ main {
     pointer-events: none;
 }
 
+/* Trees */
+.trees-container {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.trees-back {
+    z-index: 0;
+}
+
+.trees-front {
+    z-index: 15;
+}
+
+.tree {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: var(--tree-w) solid transparent;
+    border-right: var(--tree-w) solid transparent;
+    border-bottom: var(--tree-h) solid var(--tree-color);
+    left: 100%;
+    bottom: var(--tree-y);
+    transform: translateX(100%);
+    animation: treeScroll var(--tree-speed) linear infinite;
+    animation-delay: var(--tree-delay);
+}
+
+@keyframes treeScroll {
+    0% { transform: translateX(100%); left: 100%; }
+    100% { transform: translateX(-100%); left: -50px; }
+}
+
+/* Tum Tum Rickshaw / Bat Guy */
+.tum-tum-wrapper {
+    position: absolute;
+    bottom: 65px;
+    right: -150px; /* Start off-screen */
+    width: 70px;
+    z-index: 10;
+}
+
+.tum-tum-svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
 /* ==============================
    Bus CRASH Animation (Login Fail)
    ============================== */
@@ -469,9 +519,30 @@ main {
     animation: none !important;
 }
 
-/* Stop road scrolling during crash */
-.crash-active .road-line {
-    animation-play-state: paused;
+/* Stop road and tree scrolling during crash */
+.crash-active .road-line,
+.crash-active .tree {
+    animation-play-state: paused !important;
+}
+
+/* Tum Tum / Bat Guy Crash Sequence */
+.crash-active .tum-tum-wrapper {
+    animation: batGuyRun 0.4s ease-in forwards;
+}
+
+@keyframes batGuyRun {
+    0% { right: -150px; transform: rotate(0deg); }
+    100% { right: calc(50% - 100px); transform: rotate(-5deg) translateY(-10px); }
+}
+
+.crash-active .the-bat {
+    transform-origin: 30px 75px;
+    animation: batSwing 0.15s ease-in 0.25s forwards;
+}
+
+@keyframes batSwing {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(-70deg); }
 }
 
 /* Crash effects container - positioned at bus center */
@@ -753,6 +824,173 @@ main {
     font-size: 1rem;
     color: var(--text-secondary);
     margin-bottom: 0.25rem;
+}
+
+/* ==============================
+   Role Login Transitions
+   ============================== */
+
+#view-transition {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+}
+
+#view-transition.active {
+    display: flex;
+}
+
+.transition-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    border-radius: var(--border-radius);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    min-width: 300px;
+}
+
+.transition-container h3 {
+    margin-top: 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+}
+
+.transition-container p {
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Admin Sequence */
+.trans-admin .icon-wrapper {
+    color: var(--purple-primary);
+    animation: adminPulse 1.5s infinite;
+}
+
+.trans-admin svg {
+    width: 64px; height: 64px;
+}
+
+.admin-grid-line {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--purple-light), transparent);
+    margin-top: 1.5rem;
+    animation: gridScan 1.5s linear infinite;
+}
+
+@keyframes adminPulse {
+    0%, 100% { filter: drop-shadow(0 0 10px rgba(147, 51, 234, 0.5)); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 25px rgba(147, 51, 234, 0.9)); transform: scale(1.1); }
+}
+
+@keyframes gridScan {
+    0% { transform: translateY(-10px); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(10px); opacity: 0; }
+}
+
+/* Conductor Sequence */
+.trans-conductor .printing-area {
+    position: relative;
+    padding-top: 10px;
+}
+
+.trans-conductor .printing-box {
+    width: 120px;
+    height: 20px;
+    background: #0f172a;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    position: relative;
+    z-index: 2;
+    margin: 0 auto;
+}
+
+.trans-conductor .ticket-slide {
+    width: 80px;
+    height: 100px;
+    background: var(--yellow-primary);
+    color: #000;
+    margin: 0 auto;
+    position: relative;
+    top: -15px;
+    z-index: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: ticketPrint 2s ease-out forwards;
+}
+
+.trans-conductor svg {
+    width: 32px; height: 32px;
+}
+
+.punch-hole {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    width: 12px; height: 12px;
+    background: var(--bg-panel);
+    border-radius: 50%;
+    opacity: 0;
+    animation: holePunch 2s forwards;
+}
+
+@keyframes ticketPrint {
+    0% { transform: translateY(-80px); opacity: 0; }
+    30% { transform: translateY(0); opacity: 1; }
+    60% { transform: translateY(0) scale(1); }
+    80%, 100% { transform: translateY(15px) scale(1.1) rotate(3deg); }
+}
+
+@keyframes holePunch {
+    0%, 65% { opacity: 0; transform: scale(0); box-shadow: none; }
+    70%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 5px rgba(0,0,0,0.5) inset; }
+}
+
+/* Driver Sequence */
+.trans-driver .icon-wrapper {
+    color: var(--text-secondary);
+    animation: wheelTurn 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.trans-driver svg {
+    width: 64px; height: 64px;
+}
+
+.dashboard-lights {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 1.5rem;
+}
+
+.dash-light {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #334155;
+}
+
+.dash-light.on-1 { animation: lightOn 0.1s forwards 0.5s; }
+.dash-light.on-2 { animation: lightOn 0.1s forwards 1.0s; }
+.dash-light.on-3 { animation: lightOn 0.1s forwards 1.5s; }
+
+@keyframes wheelTurn {
+    0% { transform: rotate(0deg); color: var(--text-secondary); }
+    50% { transform: rotate(90deg); color: var(--text-primary); }
+    100% { transform: rotate(0deg); color: var(--green-success); }
+}
+
+@keyframes lightOn {
+    0% { background: #334155; box-shadow: none; }
+    100% { background: var(--green-success); box-shadow: 0 0 10px var(--green-success); }
 }
 
 .stat-info p {

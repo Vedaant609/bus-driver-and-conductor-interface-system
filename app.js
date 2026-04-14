@@ -105,6 +105,39 @@ function getRouteDistance(stops, fromIndex, toIndex) {
     return totalDistance;
 }
 
+// =============== SCENERY GENERATION ===============
+function generateTrees() {
+    const frontContainer = document.getElementById('trees-front');
+    const backContainer = document.getElementById('trees-back');
+    if (!frontContainer || !backContainer) return;
+    
+    // Generate background trees
+    for (let i = 0; i < 15; i++) {
+        const tree = document.createElement('div');
+        tree.className = 'tree';
+        tree.style.setProperty('--tree-h', `${20 + Math.random() * 30}px`);
+        tree.style.setProperty('--tree-w', `${10 + Math.random() * 15}px`);
+        tree.style.setProperty('--tree-color', '#064e3b'); // Dark green
+        tree.style.setProperty('--tree-y', `${Math.random() * 10}px`);
+        tree.style.setProperty('--tree-speed', `${8 + Math.random() * 4}s`);
+        tree.style.setProperty('--tree-delay', `-${Math.random() * 12}s`);
+        backContainer.appendChild(tree);
+    }
+    
+    // Generate foreground trees
+    for (let i = 0; i < 10; i++) {
+        const tree = document.createElement('div');
+        tree.className = 'tree';
+        tree.style.setProperty('--tree-h', `${40 + Math.random() * 40}px`);
+        tree.style.setProperty('--tree-w', `${20 + Math.random() * 20}px`);
+        tree.style.setProperty('--tree-color', '#047857'); // Medium green
+        tree.style.setProperty('--tree-y', `0px`);
+        tree.style.setProperty('--tree-speed', `${4 + Math.random() * 2}s`);
+        tree.style.setProperty('--tree-delay', `-${Math.random() * 6}s`);
+        frontContainer.appendChild(tree);
+    }
+}
+
 // =============== STATE MANAGEMENT ===============
 let appState = {
     currentUser: JSON.parse(localStorage.getItem('transitProUser')) || null,
@@ -130,6 +163,7 @@ const toastContainer = document.getElementById('toast-container');
 
 const views = {
     login: document.getElementById('view-login'),
+    transition: document.getElementById('view-transition'),
     admin: document.getElementById('view-admin'),
     conductor: document.getElementById('view-conductor'),
     driver: document.getElementById('view-driver')
@@ -217,6 +251,8 @@ const driverStopsContainer = document.getElementById('driver-stops');
 function init() {
     lucide.createIcons();
     document.documentElement.setAttribute('data-theme', appState.theme);
+    
+    generateTrees();
 
     const today = new Date().toISOString().split('T')[0];
     if (assignDate) assignDate.value = today;
@@ -363,12 +399,22 @@ async function fetchAllStaff() {
             const assignmentState = s.bus_id ? `<span style="color: var(--green-success); font-weight: bold;">Active in ${s.bus_id}</span>` : `<span class="text-muted">Off Duty</span>`;
             const icon = s.role === 'Driver' ? 'steering-wheel' : 'ticket';
             allStaffList.innerHTML += `
-                <div class="stop-item">
+                <div class="stop-item" style="cursor: pointer;" onclick="const creds = this.querySelector('.staff-credentials'); creds.style.display = creds.style.display === 'none' ? 'block' : 'none';">
                     <div class="stop-info">
                         <div class="stat-icon" style="width: 40px; height: 40px;"><i data-lucide="${icon}"></i></div>
-                        <div style="display:flex; flex-direction: column;">
+                        <div style="display:flex; flex-direction: column; width: 100%;">
                             <span class="stop-name">${s.full_name} <span class="text-muted" style="font-size: 0.8em; margin-left: 0.5rem;">[${s.username}]</span></span>
                             <span class="text-secondary" style="font-size: 0.9em;">${s.role} • ${assignmentState}</span>
+                            <div class="staff-credentials" style="display: none; margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-page); border-radius: 8px; font-size: 0.9rem; border: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                    <span class="text-secondary">System ID</span>
+                                    <span style="font-weight: 600; color: var(--text-primary);">${s.id}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span class="text-secondary">Password</span>
+                                    <span style="font-family: monospace; font-size: 1.1em; color: var(--text-primary); letter-spacing: 2px;">${s.password}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>`;
@@ -404,8 +450,59 @@ function bindEvents() {
                 await fetchData();
                 showToast(`Welcome, ${data.user.full_name}`, 'success');
                 loginPasswordInput.value = '';
-                showView(appState.currentUser.role.toLowerCase());
-                startPolling();
+                
+                const transitionContainer = document.getElementById('transition-container');
+                if (transitionContainer) {
+                    const role = appState.currentUser.role.toLowerCase();
+                    if (role === 'admin') {
+                        transitionContainer.parentElement.className = 'view trans-admin active'; // active because showView overrides classes usually
+                        transitionContainer.innerHTML = `
+                            <div class="icon-wrapper"><i data-lucide="shield-check"></i></div>
+                            <h3>Accessing Admin Frames</h3>
+                            <p>Authenticating credentials...</p>
+                            <div class="admin-grid-line"></div>
+                        `;
+                    } else if (role === 'conductor') {
+                        transitionContainer.parentElement.className = 'view trans-conductor active';
+                        transitionContainer.innerHTML = `
+                            <div class="printing-area">
+                                <div class="ticket-slide">
+                                    <i data-lucide="ticket"></i>
+                                    <div class="punch-hole"></div>
+                                </div>
+                                <div class="printing-box"></div>
+                            </div>
+                            <h3>Verifying Details</h3>
+                            <p>Preparing ticketing machine...</p>
+                        `;
+                    } else if (role === 'driver') {
+                        transitionContainer.parentElement.className = 'view trans-driver active';
+                        transitionContainer.innerHTML = `
+                            <div class="icon-wrapper"><i data-lucide="steering-wheel"></i></div>
+                            <h3>Starting Engine</h3>
+                            <p>Initializing dashboard metrics...</p>
+                            <div class="dashboard-lights">
+                                <div class="dash-light on-1"></div>
+                                <div class="dash-light on-2"></div>
+                                <div class="dash-light on-3"></div>
+                            </div>
+                        `;
+                    }
+                    
+                    // We must call showView first which resets classes on all views, 
+                    // then we manually add our transition classes back.
+                    showView('transition');
+                    transitionContainer.parentElement.classList.add('trans-' + role);
+                    lucide.createIcons();
+                    
+                    setTimeout(() => {
+                        showView(role);
+                        startPolling();
+                    }, 2500);
+                } else {
+                    showView(appState.currentUser.role.toLowerCase());
+                    startPolling();
+                }
             } else { showToast(data.error, 'error'); triggerBusCrash(); }
         } catch (e) { showToast('Connection failed', 'error'); triggerBusCrash(); }
         finally { loginSubmitBtn.disabled = false; loginSubmitBtn.textContent = 'Login'; }
