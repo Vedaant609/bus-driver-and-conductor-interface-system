@@ -1,35 +1,27 @@
-# TransitPro - Permanent Data Edition
+# TransitPro
 
-TransitPro has been upgraded to include a full **Python Flask + SQLite backend**, meaning all routes, assignments, tickets, and revenue histories are now permanently saved.
+Hey there! This is a simple bus management system with a Python Flask and SQLite backend. It saves everything—routes, assignments, tickets, and revenue—so you don't lose your data when you close the app.
 
-## Features Built
-- **Admin Analytics Dashboard:**
-  - View detailed Day-Wise Analytics for your generated revenue broken down per route.
-  - Hard-assign a Bus ID to a specific Route on a specific Date before the Conductor or Driver logs in.
-- **Conductor Operations:** Issue/cancel tickets and mark route progression.
-- **Driver Alert System:** Stops where passengers must alight are prominently highlighted in red to reduce missing drops.
-- **Real-Time Cross-Tab Sync via API:** The frontend continuously tracks and pulls state from the `SQLite` Database via an internal REST API (`localhost:5000/api`), keeping all Conductors, Drivers, and Admin screens in sync!
+## What's inside?
+- **Admin Dashboard:** Keep an eye on daily revenue and assign buses to routes.
+- **Conductor Tools:** Issue and cancel tickets easily while on the road.
+- **Driver Alerts:** Get highlighted alerts for upcoming stops so nobody misses their drop.
 
-## Prerequisites
-- Python 3 installed
-- Web browser
+The best part? Everything syncs up in real-time. If a conductor issues a ticket, the admin sees the revenue update right away!
 
-## Installation & Setup
+## How to run it
 
-1. Open your terminal/command prompt to this folder.
-2. Ensure you have the required python packages (`Flask` and `Flask-CORS`) installed by running:
-```bash
-pip install flask flask-cors
-```
-3. Boot up the dedicated server by running:
-```bash
-python app.py
-```
-4. Access the App: Open your web browser and navigate directly to **[http://localhost:5000](http://localhost:5000)**. 
+1. Make sure you have Python 3 installed.
+2. Open your terminal in this folder and install what we need:
+   ```bash
+   pip install flask flask-cors
+   ```
+3. Start up the backend server:
+   ```bash
+   python app.py
+   ```
+4. Open your browser and head over to [http://localhost:5000](http://localhost:5000).
 
-### How to use Daily Scheduling as an Admin
-1. Login as an **Admin**.
-2. Go to the **Assign Bus** card. Select today's date, pick a Route, and assign a bus to it (e.g., `BUS-99`). Click **Lock Assignment**.
-3. Now open a separate browser tab to **http://localhost:5000** and log in as a **Conductor** for `BUS-99`. 
-4. Issue tickets during your trip!
-5. In your Admin tab, change the Date Picker in the **Daily Analytics** box to today's date to watch the revenue update per route!
+To get started, log in as an Admin, assign a bus for today, and then you can log in as a Conductor in another tab to try issuing tickets!
+
+That's it! Enjoy using TransitPro!
